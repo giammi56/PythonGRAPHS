@@ -1,0 +1,89 @@
+// ------------------------------------------------------------------------------------------
+// Template for tuning of diatomic KER.
+// Default KER range is 0 eV to 10 eV.
+//
+// Simply copy functions to "user.cpp" replacing the old ones...
+// ------------------------------------------------------------------------------------------
+
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
+#include "TStyle.h"
+#include "TH2D.h"
+#include "TCanvas.h"
+#include "TSystem.h"
+#include "TProfile.h"
+#include "TCutG.h"
+#include "TPolyLine.h"
+#include "TObjArray.h"
+#include "TF1.h"
+#include "ipa.h"
+void ipa_class::init_user_histograms() {
+	// Due to the multithreading the histograms need to be defined as a double array 
+	// with first index being "[th]".
+	// Example: "this->H1D[th][0]" is the first 1D histogram.
+
+	double KERmin = 0.0;
+	double KERmax = 20.0;
+	int ebins = 200;
+
+	double p = 150.0;
+	int pbins = 200;
+
+	this->myCanvas[0] = root->newCanvas("IPA","Interactive Parameter Adjustment - The Canvas",10,300,330*3,330*2);
+	this->myCanvas[0]->Divide(3,2);
+	char s[20];
+	for(int th=0;th<MAXTHREADS;th++) {
+		sprintf_s(s,"KER_%i",th);
+		this->H1D[th][0] = root->newTH1D(s,"KER",ebins,KERmin,KERmax,"KER [eV]","");
+		sprintf_s(s,"px1y1_%i",th);
+		this->H2D[th][0] = root->newTH2D(s,"",pbins,-p,p,"p_rel_x",pbins,-p,p,"p_rel_y","COLZ");
+		sprintf_s(s,"px1z1_%i",th);
+		this->H2D[th][1] = root->newTH2D(s,"",pbins,-p,p,"p_rel_x",pbins,-p,p,"p_rel_z","COLZ");
+		sprintf_s(s,"py1z1_%i",th);
+		this->H2D[th][2] = root->newTH2D(s,"",pbins,-p,p,"p_rel_y",pbins,-p,p,"p_rel_z","COLZ");
+		sprintf_s(s,"cthetaKER_%i",th);
+		this->H2D[th][3] = root->newTH2D(s,"",90,-1.0,1.0,"cos(theta)",ebins,KERmin,KERmax,"KER [eV]","COLZ");
+		sprintf_s(s,"phiKER_%i",th);
+		this->H2D[th][4] = root->newTH2D(s,"",90,-180.0,180.0,"phi",ebins,KERmin,KERmax,"KER [eV]","COLZ");
+	}
+}
+
+void ipa_class::user_function(CH_event_struct *evti, int th) {
+	// Due to the multithreading you need to add "[th]" to e, r, mol and big_mol!
+	// Example: second electron is "e[th][1]->", a diatomic is "mol[th]->" etc.
+	if(mol[th]->valid) {
+		H1D[th][0]->Fill(mol[th]->KER(),1.0);
+		
+		H2D[th][0]->Fill(mol[th]->mom_rel.x,mol[th]->mom_rel.y,1.0);
+		H2D[th][1]->Fill(mol[th]->mom_rel.x,mol[th]->mom_rel.z,1.0);
+		H2D[th][2]->Fill(mol[th]->mom_rel.y,mol[th]->mom_rel.z,1.0);
+
+		H2D[th][3]->Fill(mol[th]->mom_rel.Cos_Theta(),mol[th]->KER(),1.0);
+		H2D[th][4]->Fill(mol[th]->mom_rel.Phi_deg(),mol[th]->KER(),1.0);
+	}
+}
+
+void ipa_class::user_draw() {
+	// Plotting the histos: first array index is always "[0]", second is the one of 
+	// the histogram you want to plot. E.g. H2D[0][2]->Draw() will plot your histogram
+	// number two.
+	
+	myCanvas[0]->cd(1);
+	H2D[0][0]->Draw();
+	myCanvas[0]->cd(2);
+	H2D[0][1]->Draw();
+	myCanvas[0]->cd(3);
+	H2D[0][2]->Draw();
+	
+	myCanvas[0]->cd(4);
+	H1D[0][0]->Draw();	
+	myCanvas[0]->cd(5);
+	H2D[0][3]->Draw();
+	myCanvas[0]->cd(6);
+	H2D[0][4]->Draw();
+
+	myCanvas[0]->Modified();
+	myCanvas[0]->Update();
+}

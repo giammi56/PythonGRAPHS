@@ -1,0 +1,263 @@
+// --	ADC Inspect Options (Meta) -- //
+parameter 810	0		;// inspect adc signals
+parameter 811	0		;// show all pulses
+parameter 812	-1		;// show pulse in channel (-1 = off)
+
+parameter 819	1234567 ;// check number. Always 1234567
+parameter 820	10000	;// Nbr Events to write
+parameter 821	0		;// Write Raw Pulse Infos 
+parameter 822	0		;// Write Oscillopscope Mode 
+parameter 823	0		;// Trigger Channel (for Oscilloscope Mode)
+parameter 824	0		;// Write Signal Inspector
+
+
+
+// HDF5-Stuff for XFEL 2019:
+parameter 830	0		; // HDF5: trigger_channel			(is ignored if p837 = 0)
+parameter 831	-500	; // HDF5: group_range_start		(is ignored if p837 = 0)
+parameter 832	10000	; // HDF5: group_range_end			(is ignored if p837 = 0)
+parameter 834	10000	; // HDF5: time slice width in ns	(is ignored if p837 = 1)
+parameter 835	500		; // HDF5: ADC binsize in ps
+parameter 836	800		; // HDF5: full scale in mV
+parameter 837	0		; // HDF5: 1 = use_grouping = true, 0 = use time slicing 
+
+
+
+// --	LMA Mode	-- //
+parameter 850	0		;// use lma files
+
+// --	Double Pulse Analysis -- //
+parameter 900	0		;//use Double Pulse Analysis
+parameter 901	1000000	;//max number of events for initialisation
+
+
+parameter 904	50000	;//nbr events for DPA initialisation
+parameter 905	50000	;//nbr events for advanced meanpulse (50000)
+
+// --	DPA Debug Mode -- //
+parameter 950	0		;//DPA debug mode
+parameter 951	10000	;//read events in debug mode 10000
+parameter 952	0		;//DPA debug mode Hist
+
+parameter 953	0		;//DPA debug mode GUI 
+parameter 954	0		;//show DPA Events
+
+
+
+// ---------------------------------------------------------------------------------------- //
+
+//=============================================-------------------------
+// Bottom det. 
+// (Ion)
+//=============================================-------------------------
+
+//Channel 19, MCP
+parameter 1133	20.		;//Threshold [mV]
+parameter 1134	1.		;//Polarity
+parameter 1135	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1136  0		;//Use DPA for channel	
+parameter 1137	1.		;//fraction ratio
+parameter 1138	3.		;//delay [ns]
+parameter 1139	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 20, u1
+parameter 1140	20.		;//Threshold [mV]
+parameter 1141	1.		;//Polarity
+parameter 1142	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1143  0		;//Use DPA for channel	
+parameter 1144	1.		;//fraction ratio
+parameter 1145	3		;//delay [ns]
+parameter 1146	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 2, u2
+parameter 1014	20.		;//Threshold [mV]
+parameter 1015	1.		;//Polarity
+parameter 1016	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1017  0		;//Use DPA for channel	
+parameter 1018	1		;//fraction ratio
+parameter 1019	3.		;//delay [ns]
+parameter 1020	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 8, v1
+parameter 1056	20.		;//Threshold [mV]
+parameter 1057	1.		;//Polarity
+parameter 1058	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1059  0		;//Use DPA for channel	
+parameter 1060	0.5		;//fraction ratio
+parameter 1061	5.		;//delay [ns]
+parameter 1062	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 3, v2
+parameter 1021	20.		;//Threshold [mV]
+parameter 1022	1.		;//Polarity
+parameter 1023	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1024  0		;//Use DPA for channel	
+parameter 1025	1		;//fraction ratio
+parameter 1026	3.		;//delay [ns]
+parameter 1027	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 14, w1
+parameter 1098	20.		;//Threshold [mV]
+parameter 1099	1.		;//Polarity
+parameter 1100	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1101  0		;//Use DPA for channel	
+parameter 1102	1.		;//fraction ratio
+parameter 1103	3		;//delay [ns]
+parameter 1104	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 9, w2
+parameter 1063	20.		;//Threshold [mV]
+parameter 1064	1.		;//Polarity
+parameter 1065	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1066  0		;//Use DPA for channel	
+parameter 1067	1.		;//fraction ratio
+parameter 1068	3.		;//delay [ns]
+parameter 1069	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//=============================================-------------------------
+// Top det. 
+// (Electron)
+//=============================================-------------------------
+
+//Channel 0, MCP
+parameter 1000	20.		;//Threshold [mV]
+parameter 1001	1.		;//Polarity
+parameter 1002	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1003  0		;//Use DPA for channel	
+parameter 1004	1		;//fraction ratio
+parameter 1005	3.		;//delay [ns]
+parameter 1006	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 6, u1 
+parameter 1042	20.		;//Threshold [mV]
+parameter 1043	1.		;//Polarity
+parameter 1044	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1045  0		;//Use DPA for channel	
+parameter 1046	1		;//fraction ratio
+parameter 1047	3.		;//delay [ns]
+parameter 1048	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 1, u2
+parameter 1007	20.		;//Threshold [mV]
+parameter 1008	1.		;//Polarity
+parameter 1009	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1010  0		;//Use DPA for channel	
+parameter 1011	1		;//fraction ratio
+parameter 1012	3.		;//delay [ns]
+parameter 1013	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//channel 12, v1
+parameter 1084	20.		;//Threshold [mV]
+parameter 1085	1.		;//Polarity
+parameter 1086	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: FE, 4: Max)
+parameter 1087  0		;//Use DPA for channel	
+parameter 1088	1.		;//fraction ratio
+parameter 1089	3		;//delay [ns]
+parameter 1090	0.5		;//LE / FE ratio
+
+//Channel 7, v2
+parameter 1049	20.		;//Threshold [mV]
+parameter 1050	1.		;//Polarity
+parameter 1051	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1052  0		;//Use DPA for channel	
+parameter 1053	1		;//fraction ratio
+parameter 1054	3.		;//delay [ns]
+parameter 1055	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//channel 18, w1
+parameter 1126	20.		;//Threshold [mV]
+parameter 1127	1.		;//Polarity
+parameter 1128	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: FE, 4: Max)
+parameter 1129  0		;//Use DPA for channel	
+parameter 1130	1.		;//fraction ratio
+parameter 1131	3		;//delay [ns]
+parameter 1132	0.5		;//LE / FE ratio
+
+//Channel 13, w2
+parameter 1091	20.		;//Threshold [mV]
+parameter 1092	1.		;//Polarity
+parameter 1093	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1094  0		;//Use DPA for channel	
+parameter 1095	1.		;//fraction ratio
+parameter 1096	3.		;//delay [ns]
+parameter 1097	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//=============================================-------------------------
+// Timing
+
+//Channel 15   
+parameter 1105	20.		;//Threshold [mV]
+parameter 1106	1.		;//Polarity
+parameter 1107	3		;//Method (0: Cfd, 1: COM, 2: LE, 3: FE, 4: Max)
+parameter 1108  0		;//Use DPA for channel	
+parameter 1109	1.		;//fraction ratio
+parameter 1110	3		;//delay [ns]
+parameter 1111	0.5		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+// Burst Trigger, TDC
+
+//Channel 4 - (if fADC4 or NDigo5G then this is a TDC-channel)
+parameter 1028	20.		;//Threshold [mV]
+parameter 1029	1.		;//Polarity
+parameter 1030	1		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1031  0		;//Use DPA for channel	
+parameter 1032	0.5		;//fraction ratio
+parameter 1033	5.		;//delay [ns]
+parameter 1034	0.8		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//=============================================-------------------------
+//=============================================-------------------------
+
+//Channel 5 - (if fADC4 or NDigo5G then this is a low-res TDC-channel)
+parameter 1035	20.		;//Threshold [mV]
+parameter 1036	1.		;//Polarity
+parameter 1037	1		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1038  0		;//Use DPA for channel	
+parameter 1039	0.5		;//fraction ratio
+parameter 1040	5.		;//delay [ns]
+parameter 1041	0.8		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 10   (if fADC4 or NDigo5G then this is a TDC-channel)
+parameter 1070	20.		;//Threshold [mV]
+parameter 1071	1.		;//Polarity
+parameter 1072	1		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1073  0		;//Use DPA for channel	
+parameter 1074	-1.		;//fraction ratio
+parameter 1075	3		;//delay [ns]
+parameter 1076	0.8		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 11   (if fADC4 or NDigo5G then this is a low-res TDC-channel)
+parameter 1077	20.		;//Threshold [mV]
+parameter 1078	-1.		;//Polarity
+parameter 1079	1		;//Method (0: Cfd, 1: COM, 2: LE, 3: FE, 4: Max)
+parameter 1080  0		;//Use DPA for channel	
+parameter 1081	-1.		;//fraction ratio
+parameter 1082	3		;//delay [ns]
+parameter 1083	0.8		;//LE / FE ratio
+
+//Channel 16   (if fADC4 or NDigo5G then this is a TDC-channel)
+parameter 1112	20.		;//Threshold [mV]
+parameter 1113	1.		;//Polarity
+parameter 1114	1		;//Method (0: Cfd, 1: COM, 2: LE, 3: DLE, 4: Max)
+parameter 1115  0		;//Use DPA for channel	
+parameter 1116	-1.		;//fraction ratio
+parameter 1117	3		;//delay [ns]
+parameter 1118	0.8		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE
+
+//Channel 17   (if fADC4 or NDigo5G then this is a low-res TDC-channel)
+parameter 1119	20.		;//Threshold [mV]
+parameter 1120	-1.		;//Polarity
+parameter 1121	1		;//Method (0: Cfd, 1: COM, 2: LE, 3: FE, 4: Max)
+parameter 1122  0		;//Use DPA for channel	
+parameter 1123	-1.		;//fraction ratio
+parameter 1124	3		;//delay [ns]
+parameter 1125	0.8		;//LE / FE ratio
+
+//Channel 21   
+parameter 1147	20.		;//Threshold [mV]
+parameter 1148	1.		;//Polarity
+parameter 1149	1		;//Method (0: Cfd, 1: COM, 2: LE, 3: FE, 4: Max)
+parameter 1150  0		;//Use DPA for channel	
+parameter 1151	1.		;//fraction ratio
+parameter 1152	3		;//delay [ns]
+parameter 1153	0.8		;//Ratio-Max [0.1 - 0.9] for DLE | Edge height [mV] for LE

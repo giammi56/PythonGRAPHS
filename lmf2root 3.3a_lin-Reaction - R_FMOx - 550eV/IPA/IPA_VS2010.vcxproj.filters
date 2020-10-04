@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Templates">
+      <UniqueIdentifier>{eb8bd112-c129-4a3f-9e4d-ed1511175152}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Templates\Electron">
+      <UniqueIdentifier>{1e86ee2a-e36c-4012-8a94-d753ebc34971}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Templates\Diatomic">
+      <UniqueIdentifier>{ab871a5e-a2e4-497f-a04d-0bd310572309}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Templates\Polyatomic">
+      <UniqueIdentifier>{31ed82cf-0660-4af1-9e9c-a5efc15ab783}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Templates\SingleIon">
+      <UniqueIdentifier>{73cc0d8a-5aa2-4588-8121-8f449d84ad3b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ipa.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LUT_Tool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Wiggle_Tool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PIPICO_Tool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IonTOF_Tool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Fish_Tool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ipa_user.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ipa.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OS_Version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Version.txt" />
+    <None Include="Templates\Diatomic molecule sum momentum tuning.txt">
+      <Filter>Templates\Diatomic</Filter>
+    </None>
+    <None Include="Templates\Diatomic molecule find breakup.txt">
+      <Filter>Templates\Diatomic</Filter>
+    </None>
+    <None Include="Templates\Electron energy tuning.txt">
+      <Filter>Templates\Electron</Filter>
+    </None>
+    <None Include="Templates\Diatomic molecule KER tuning.txt">
+      <Filter>Templates\Diatomic</Filter>
+    </None>
+    <None Include="Templates\Scratchpad.txt">
+      <Filter>Templates</Filter>
+    </None>
+    <None Include="Templates\Polyatomic molecule ion momentum tuning.txt">
+      <Filter>Templates\Polyatomic</Filter>
+    </None>
+    <None Include="Templates\Ion momentum tuning.txt">
+      <Filter>Templates\SingleIon</Filter>
+    </None>
+  </ItemGroup>
+</Project>
