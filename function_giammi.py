@@ -10,6 +10,7 @@ def sorting_array(inarray, cosphi, phiM, cosM, a):
     is not possible to sort according to it.
     NOTE: for experimental data the default order is according to phi, vice versa for the theoretical MFPADs.
     """
+    outarray=[]
     cosn=np.array([col[0] for col in cosphi]); #list
     phin=np.array([col[1] for col in cosphi]); #list
     if inarray.ndim>2:
@@ -51,7 +52,7 @@ def sorting_array(inarray, cosphi, phiM, cosM, a):
     else:
         outarray=dfnew.values.reshape(72, inarray.shape[1])
 
-    return outarray
+    return np.array(outarray)
 
 def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
     """
@@ -93,35 +94,40 @@ def rot3d_photo(theta,phi):
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
 
-def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj):
+def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj, cosx=False):
     """
     Converts the MFPAD into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
     Rotates them according to the realtive cosphi_adj_cart_lf,
     Converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis))
     INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector
-    OUTPUT: counts [200,100], ctheta [200,100], phi [200,100]
+    INPUT_optional: cosx=True will allow the calculation of x_LF/mom.mag()
+    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100], {cosx [72,200,100]}
     """
-    r=[]
-    ctheta=[]
-    phi=[]
+    r=[];ctheta=[];phi=[]
+    cosx_LF=[];
+    #in molecular frame
     for el,angle in zip(MFPAD,cosphi_adj):
         el = el.reshape(-1)
-        e0mom_x_MF = el * np.sin(theta_rad) * np.cos(phi_rad)
-        e0mom_y_MF = el * np.sin(theta_rad) * np.sin(phi_rad)
-        e0mom_z_MF = el * np.cos(theta_rad)
+        x = el * np.sin(theta_rad) * np.cos(phi_rad)
+        y = el * np.sin(theta_rad) * np.sin(phi_rad)
+        z = el * np.cos(theta_rad)
         
-        xyzm = np.stack((e0mom_x_MF, e0mom_y_MF, e0mom_z_MF))
+        xyzm = np.stack((x, y, z))
 
-        e0mom_x_LF, e0mom_y_LF, e0mom_z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0), xyzm)
-        e0mom_LF = np.sqrt(e0mom_x_LF**2+e0mom_y_LF**2+e0mom_z_LF**2)
-              
-        r.append(e0mom_LF)
-        ctheta.append(e0mom_z_LF/e0mom_LF)
+        x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0), xyzm)
+        mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
+
+        cosx_LF.append(x_LF/mag_LF)
+
+        r.append(mag_LF)
+        #cos domain  0 < θ ≤ π
+        ctheta.append(z_LF/mag_LF)
         #atan2 domain  −π < θ ≤ π
-        phi.append(np.arctan2(e0mom_y_LF,e0mom_x_LF)*180./np.pi)
-
-    return np.array(r).reshape(72,200,100) , np.array(ctheta).reshape(72,200,100) , np.array(phi).reshape(72,200,100)
-    # return np.array(r) , np.array(ctheta) , np.array(phi)
+        phi.append(np.arctan2(y_LF,x_LF)*180./np.pi)
+    
+    if cosx == True:
+        return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100), np.array(cosx_LF).reshape(72,200,100)
+    return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
 
 import triangulation as tr
 from scipy.spatial import Delaunay
@@ -218,6 +224,15 @@ def cosphi_func(key, cosphi):
     #ctheta_n=re.search("costheta_(.*)_phi", str(key)).group(1)
     cosphi.append((ctheta_nc, phi_nc))
     return cosphi
+
+def projection(MFPAD, a):
+    """
+    Return the projection of the matrix MFPAD on one of the axis a
+    """
+    projected=[]
+    for j,el in enumerate(MFPAD):
+        projected.append(MFPAD[j].sum(axis=a))
+    return np.array(projected)
 
 def normalise_matrix(a):
     row_sums = a.sum(axis=1)
