@@ -94,17 +94,19 @@ def rot3d_photo(theta,phi):
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
 
-def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj, cosx=False):
+def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,cosx=False,n=30):
     """
     Converts the MFPAD into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
     Rotates them according to the realtive cosphi_adj_cart_lf,
     Converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis))
     INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector
     INPUT_optional: cosx=True will allow the calculation of x_LF/mom.mag()
-    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100], {cosx [72,200,100]}
+    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100], {cosx [72,2,n] with n size of of bins for cosx}
+    NOTE: number of b to estimate in the PECD interpolation < n < 100 original size of cosz from philip (close to this Mpire effect)
+          to call the cosx of a specific MFPAD counts=cosx[i][0], bins=cosx[i][1]
     """
     r=[];ctheta=[];phi=[]
-    cosx_LF=[];
+    cosx_LF_temp=[];
     #in molecular frame
     for el,angle in zip(MFPAD,cosphi_adj):
         el = el.reshape(-1)
@@ -117,16 +119,23 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj, cosx=False):
         x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0), xyzm)
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
 
-        cosx_LF.append(x_LF/mag_LF)
-
         r.append(mag_LF)
         #cos domain  0 < θ ≤ π
+        cosx_LF_temp.append(x_LF/mag_LF)
         ctheta.append(z_LF/mag_LF)
         #atan2 domain  −π < θ ≤ π
         phi.append(np.arctan2(y_LF,x_LF)*180./np.pi)
     
     if cosx == True:
-        return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100), np.array(cosx_LF).reshape(72,200,100)
+        cosx_LF=[];
+        np.array(cosx_LF_temp).reshape(72,200,100)
+        np.array(r).reshape(72,200,100)
+        for elc,elt in zip(cosx_LF_temp,r):
+            counts, cbins = np.histogram(np.array(elc).reshape(-1),weights=np.array(r).reshape(-1), range=(-1,1), bins=n)
+            #cbins has lenght=(n+1), here how to considere the average and reduce the length to n
+            cbins=(cbins[1:] + cbins[:-1])/2
+            cosx_LF.append((counts,cbins))
+        return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100), np.array(cosx_LF).reshape(72,2,n)
     return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
 
 import triangulation as tr
@@ -146,6 +155,9 @@ def getamesh(x,y,z,d):
     tri = mesh[['v1', 'v2', 'v3']].values
     I, J, K = tri.T
     return x,y,z,I,J,K
+
+import plotly
+import plotly.graph_objects as go
 
 def makeamesh (x,y,z,d):
     points2d_trace=go.Scatter(x=x, y=y, mode='markers', marker_color='red', marker_size=6)
@@ -227,11 +239,15 @@ def cosphi_func(key, cosphi):
 
 def projection(MFPAD, a):
     """
-    Return the projection of the matrix MFPAD on one of the axis a
+    Return the projection of the tensor MFPAD on one of the chosen axis a.
+    The case of MFPAD as a matrix is covered.
     """
     projected=[]
-    for j,el in enumerate(MFPAD):
-        projected.append(MFPAD[j].sum(axis=a))
+    if len(np.array(MFPAD).shape)>2:
+        for j,el in enumerate(MFPAD):
+            projected.append(MFPAD[j].sum(axis=a))
+    else:
+        projected=(MFPAD.sum(axis=a))
     return np.array(projected)
 
 def normalise_matrix(a):
