@@ -101,9 +101,8 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,cosx=False,n=30):
     Converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis))
     INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector
     INPUT_optional: cosx=True will allow the calculation of x_LF/mom.mag()
-    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100], {cosx [72,2,n] with n size of of bins for cosx}
+    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100], {cosx [72,n], cbins [30]} with n size of of bins for cosx}
     NOTE: number of b to estimate in the PECD interpolation < n < 100 original size of cosz from philip (close to this Mpire effect)
-          to call the cosx of a specific MFPAD counts=cosx[i][0], bins=cosx[i][1]
     """
     r=[];ctheta=[];phi=[]
     cosx_LF_temp=[];
@@ -127,15 +126,16 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,cosx=False,n=30):
         phi.append(np.arctan2(y_LF,x_LF)*180./np.pi)
     
     if cosx == True:
-        cosx_LF=[];
-        np.array(cosx_LF_temp).reshape(72,200,100)
-        np.array(r).reshape(72,200,100)
+        cosx_LF=[]; cbins=[];
+        cosx_LF_temp=np.array(cosx_LF_temp).reshape(72,200,100)
+        r=np.array(r).reshape(72,200,100)
         for elc,elt in zip(cosx_LF_temp,r):
-            counts, cbins = np.histogram(np.array(elc).reshape(-1),weights=np.array(r).reshape(-1), range=(-1,1), bins=n)
+            counts, cbins = np.histogram(np.array(elc).reshape(-1),weights=np.array(elt).reshape(-1), range=(-1,1), bins=n)
             #cbins has lenght=(n+1), here how to considere the average and reduce the length to n
             cbins=(cbins[1:] + cbins[:-1])/2
-            cosx_LF.append((counts,cbins))
-        return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100), np.array(cosx_LF).reshape(72,2,n)
+            cosx_LF.append(counts)
+            #these bins could not be exported, they are all equal it is a waste of memory
+        return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100), np.array(cosx_LF).reshape(72,n), cbins
     return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
 
 import triangulation as tr
