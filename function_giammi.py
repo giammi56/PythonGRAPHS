@@ -67,7 +67,32 @@ def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
     return b
 
 def mag(vector):  
-    return math.sqrt(sum(pow(element, 2) for element in vector)) 
+    return math.sqrt(sum(pow(element, 2) for element in vector))
+
+def rot2d(theta,phi,cosphi_adj,cosx=False):
+    """
+    It computes a clockwise rotation in spherical coordinates.
+    OUTPUT: rotated cos(theta) and phi in DEG
+    """
+    theta_rot=[];phi_rot=[];
+    for angle in cosphi_adj:
+        for th,ph in zip(theta.reshape(-1),phi.reshape(-1)):
+            testt=th+np.arccos(angle[0]*180./np.pi)
+            if testt<0.:
+                theta_rot.append(testt+180.)
+            elif testt>180.:
+                theta_rot.append(testt-180.)
+            else:
+                theta_rot.append(testt)
+
+            testp=ph+angle[1]
+            if testp<=-180.:
+                phi_rot.append(testp+360.)
+            elif testp>180.:
+                phi_rot.append(testp-360.)
+            else:
+                phi_rot.append(testp)
+    return np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,200,100),np.array(phi_rot).reshape(72,200,100)
 
 def rot3d(alpha,beta,gamma):
     """
@@ -81,7 +106,7 @@ def rot3d(alpha,beta,gamma):
                            [-np.sin(beta)             , np.sin(gamma)*np.cos(beta)                                          , np.cos(gamma)*np.cos(beta)                                         ]])
     return rot_matrix
 
-def rot3d_photo(theta,phi):
+def rot3d_photo(theta,phi,):
     """
     It computes the intrinsic rotation according to the convention z,x',y''. The angles are phi around -z, theta around y,
     and because of cylindrical symmetry due to cpl phi around x is  = 0 (better it in not defined). 
@@ -269,13 +294,18 @@ def import_MFPAD(file, loc, MFPAD, cosphi, MFPAD_xy, ctheta, ctheta_c, ctheta_cr
         filename=loc+"/"+str(key).split(";")[0].replace("b'","")
         if "mfpad3d_engate_costheta" in filename.lower():
             cosphi=cosphi_func(key,cosphi)
-            temp=np.array(file[filename].numpy())
+            #just .numpy for uproot3
+            temp=np.array(file[filename].to_numpy())
             MFPAD.append(temp[0]) # it is a list!
             if run_MFPAD == 0.:
-                MFPAD_xy.append((temp[1][0][0] , temp[1][0][1])) # phi cos(theta) from 2D
+                #structure for uproot3
+                # MFPAD_xy.append((temp[1][0][0] , temp[1][0][1])) # phi cos(theta) from 2D
+                #structure for uproot4
+                MFPAD_xy.append((temp[1], temp[2])) # phi cos(theta) from 2D
                 run_MFPAD=1.
         elif "cos(theta)" in filename.lower():
-            temp=np.array(file[filename].numpy())
+            #just .numpy for uproot3
+            temp=np.array(file[filename].to_numpy())
             ctheta.append(temp[0]) # it is a list!
             if run_cos == 0.:
                 ctheta_c.append(temp[1])
