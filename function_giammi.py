@@ -1,6 +1,9 @@
+from itertools import count
 import numpy as np
 import math
+from numpy.core.defchararray import array
 import pandas as pd
+from scipy.interpolate import griddata
 
 def sorting_array(inarray, cosphi, phiM, cosM, a):
     """
@@ -69,30 +72,35 @@ def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
 def mag(vector):  
     return math.sqrt(sum(pow(element, 2) for element in vector))
 
-def rot2d(theta,phi,cosphi_adj,cosx=False):
+def rot2d_MFPAD(MFPAD,theta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
     """
-    It computes a clockwise rotation in spherical coordinates.
-    OUTPUT: rotated cos(theta) and phi in DEG
+    It computes a clockwise rotation in spherical coordinates of the MFPAD. It interpolated the roated MFPAD on a linear phiMM cosMM grid.
+    OUTPUT: MFPAD, rotated cos(theta) [adm] and phi [DEG]
     """
-    theta_rot=[];phi_rot=[];
+    MFPAD_rot=[];theta_rot=[];phi_rot=[];
     for angle in cosphi_adj:
-        for th,ph in zip(theta.reshape(-1),phi.reshape(-1)):
-            testt=th+np.arccos(angle[0]*180./np.pi)
-            if testt<0.:
-                theta_rot.append(testt+180.)
-            elif testt>180.:
-                theta_rot.append(testt-180.)
-            else:
-                theta_rot.append(testt)
+        for counter,el in enumerate(MFPAD):
+            for th,ph in zip(theta.reshape(-1),phi.reshape(-1)):
+                testt=th+np.arccos(angle[0]*180./np.pi)
+                if testt<0.:
+                    theta_rot.append(testt+180.)
+                elif testt>180.:
+                    theta_rot.append(testt-180.)
+                else:
+                    theta_rot.append(testt)
 
-            testp=ph+angle[1]
-            if testp<=-180.:
-                phi_rot.append(testp+360.)
-            elif testp>180.:
-                phi_rot.append(testp-360.)
-            else:
-                phi_rot.append(testp)
-    return np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,200,100),np.array(phi_rot).reshape(72,200,100)
+                testp=ph+angle[1]
+                if testp<=-180.:
+                    phi_rot.append(testp+360.)
+                elif testp>180.:
+                    phi_rot.append(testp-360.)
+                else:
+                    phi_rot.append(testp)
+
+            MFPAD_temp=griddata((np.array(phi)[counter].reshape(-1),np.cos(np.array(theta_rot[counter])*np.pi/180.).reshape(-1), MFPAD.reshape(-1), (phiMM, cosMM), method))
+            MFPAD_rot.append(np.nan_to_num(MFPAD_temp,np.nan))
+    
+    return np.array(MFPAD_rot).reshape(72,200,100),np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,200,100),np.array(phi_rot).reshape(72,200,100)
 
 def rot3d(alpha,beta,gamma):
     """
@@ -119,15 +127,15 @@ def rot3d_photo(theta,phi,):
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
 
-def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,cosx=False,n=30):
+def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
     """
     Converts the MFPAD into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
-    Rotates them according to the realtive cosphi_adj_cart_lf,
-    Converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis))
-    INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector
-    INPUT_optional: cosx=True will allow the calculation of x_LF/mom.mag()
-    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100], {cosx [72,n], cbins [30]} with n size of of bins for cosx}
-    NOTE: number of b to estimate in the PECD interpolation < n < 100 original size of cosz from philip (close to this Mpire effect)
+    rotates them according to the realtive cosphi_adj_cart_lf,
+    converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
+    makes an interpolation of the rotated MFPAD on the new cartesian axes. 
+    INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector, phiMM and cosMM linear meshgrid (100,200)
+    INPUT_optional: interpolation maethod. default = linear
+    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100]
     """
     r=[];ctheta=[];phi=[]
     cosx_LF_temp=[];
@@ -143,24 +151,16 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,cosx=False,n=30):
         x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0), xyzm)
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
 
-        r.append(mag_LF)
         #cos domain  0 < θ ≤ π
-        cosx_LF_temp.append(x_LF/mag_LF)
-        ctheta.append(z_LF/mag_LF)
+        ctheta_temp=(z_LF/mag_LF)
+        ctheta.append(ctheta_temp)
         #atan2 domain  −π < θ ≤ π
-        phi.append(np.arctan2(y_LF,x_LF)*180./np.pi)
+        phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
+        phi.append(phi_temp)
+
+        r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), mag_LF.reshape(-1), (phiMM, cosMM), method)
+        r.append(np.nan_to_num(r_temp,np.nan))
     
-    if cosx == True:
-        cosx_LF=[]; cbins=[];
-        cosx_LF_temp=np.array(cosx_LF_temp).reshape(72,200,100)
-        r=np.array(r).reshape(72,200,100)
-        for elc,elt in zip(cosx_LF_temp,r):
-            counts, cbins = np.histogram(np.array(elc).reshape(-1),weights=np.array(elt).reshape(-1), range=(-1,1), bins=n)
-            #cbins has lenght=(n+1), here how to considere the average and reduce the length to n
-            cbins=(cbins[1:] + cbins[:-1])/2
-            cosx_LF.append(counts)
-            #these bins could not be exported, they are all equal it is a waste of memory
-        return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100), np.array(cosx_LF).reshape(72,n), cbins
     return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
 
 import triangulation as tr
