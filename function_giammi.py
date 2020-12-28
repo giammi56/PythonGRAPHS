@@ -98,15 +98,15 @@ def rot2d_MFPAD(MFPAD,theta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
             else:
                 phi_rot.append(testp)
 
-    ctheta_rot=np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,100,200)
-    phi_rot=np.array(phi_rot).reshape(72,100,200)
+    ctheta_rot=np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,200,100)
+    phi_rot=np.array(phi_rot).reshape(72,200,100)
     
     for counter,el in enumerate(MFPAD):
-        MFPAD_temp=griddata((phi_rot[counter].reshape(-1),ctheta_rot[counter].reshape(-1)), el.reshape(-1), (phiMM, cosMM), method=method)
-        # MFPAD_rot.append(np.nan_to_num(MFPAD_temp,np.nan))
-        MFPAD_rot.append(MFPAD_temp)
+        MFPAD_temp=griddata((phi_rot[counter].reshape(-1),ctheta_rot[counter].reshape(-1)), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
+        MFPAD_rot.append(np.nan_to_num(MFPAD_temp,np.nan))
+        # MFPAD_rot.append(MFPAD_temp)
     
-    return np.array(MFPAD_rot).reshape(72,100,200),ctheta_rot,phi_rot
+    return np.array(MFPAD_rot).reshape(72,200,100),ctheta_rot,phi_rot
 
 def rot3d(alpha,beta,gamma):
     """
@@ -164,12 +164,13 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
         phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
         phi.append(phi_temp)
 
-        r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), mag_LF.reshape(-1), (phiMM, cosMM), method)
+        #np.mgrid = np.meshgrid.T
+        # r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), mag_LF.reshape(-1), (phiMM.T, cosMM.T), method)
         #el e mag_LF should be the same, try out
-        # r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), el.reshape(-1), (phiMM, cosMM), method=method)
+        r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
         r.append(np.nan_to_num(r_temp,np.nan))
     
-    return np.array(r).reshape(72,100,200), np.array(ctheta).reshape(72,100,200), np.array(phi).reshape(72,100,200)
+    return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
 
 import triangulation as tr
 from scipy.spatial import Delaunay
