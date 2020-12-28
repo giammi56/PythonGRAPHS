@@ -75,32 +75,38 @@ def mag(vector):
 def rot2d_MFPAD(MFPAD,theta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
     """
     It computes a clockwise rotation in spherical coordinates of the MFPAD. It interpolated the roated MFPAD on a linear phiMM cosMM grid.
+    INPUT: theta [DEG] (20000,), phi[DEG] (20000,), cosphi_adj = ([adm],[DEG]) (72,2)
     OUTPUT: MFPAD, rotated cos(theta) [adm] and phi [DEG]
+    NOTE: bondaries conditions for theta and phi
     """
     MFPAD_rot=[];theta_rot=[];phi_rot=[];
     for angle in cosphi_adj:
-        for counter,el in enumerate(MFPAD):
-            for th,ph in zip(theta.reshape(-1),phi.reshape(-1)):
-                testt=th+np.arccos(angle[0]*180./np.pi)
-                if testt<0.:
-                    theta_rot.append(testt+180.)
-                elif testt>180.:
-                    theta_rot.append(testt-180.)
-                else:
-                    theta_rot.append(testt)
+        for th,ph in zip(theta.reshape(-1),phi.reshape(-1)):
+            testt=th+np.arccos(angle[0])*180./np.pi
+            if testt<0.:
+                theta_rot.append(testt+180.)
+            elif testt>=180.:
+                theta_rot.append(testt-180.)
+            else:
+                theta_rot.append(testt)
 
-                testp=ph+angle[1]
-                if testp<=-180.:
-                    phi_rot.append(testp+360.)
-                elif testp>180.:
-                    phi_rot.append(testp-360.)
-                else:
-                    phi_rot.append(testp)
+            testp=ph+angle[1]
+            if testp<=-180.:
+                phi_rot.append(testp+360.)
+            elif testp>180.:
+                phi_rot.append(testp-360.)
+            else:
+                phi_rot.append(testp)
 
-            MFPAD_temp=griddata((np.array(phi)[counter].reshape(-1),np.cos(np.array(theta_rot[counter])*np.pi/180.).reshape(-1), MFPAD.reshape(-1), (phiMM, cosMM), method))
-            MFPAD_rot.append(np.nan_to_num(MFPAD_temp,np.nan))
+    ctheta_rot=np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,100,200)
+    phi_rot=np.array(phi_rot).reshape(72,100,200)
     
-    return np.array(MFPAD_rot).reshape(72,200,100),np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,200,100),np.array(phi_rot).reshape(72,200,100)
+    for counter,el in enumerate(MFPAD):
+        MFPAD_temp=griddata((phi_rot[counter].reshape(-1),ctheta_rot[counter].reshape(-1)), el.reshape(-1), (phiMM, cosMM), method=method)
+        # MFPAD_rot.append(np.nan_to_num(MFPAD_temp,np.nan))
+        MFPAD_rot.append(MFPAD_temp)
+    
+    return np.array(MFPAD_rot).reshape(72,100,200),ctheta_rot,phi_rot
 
 def rot3d(alpha,beta,gamma):
     """
@@ -135,7 +141,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
     makes an interpolation of the rotated MFPAD on the new cartesian axes. 
     INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector, phiMM and cosMM linear meshgrid (100,200)
     INPUT_optional: interpolation maethod. default = linear
-    OUTPUT: counts [72,200,100], ctheta [72,200,100], phi [72,200,100]
+    OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force bythe phiMM and cosMM
     """
     r=[];ctheta=[];phi=[]
     cosx_LF_temp=[];
@@ -159,9 +165,11 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
         phi.append(phi_temp)
 
         r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), mag_LF.reshape(-1), (phiMM, cosMM), method)
+        #el e mag_LF should be the same, try out
+        # r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), el.reshape(-1), (phiMM, cosMM), method=method)
         r.append(np.nan_to_num(r_temp,np.nan))
     
-    return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
+    return np.array(r).reshape(72,100,200), np.array(ctheta).reshape(72,100,200), np.array(phi).reshape(72,100,200)
 
 import triangulation as tr
 from scipy.spatial import Delaunay
