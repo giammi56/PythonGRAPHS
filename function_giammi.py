@@ -69,7 +69,7 @@ def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
     # b=np.around(b,3)
     return b
 
-def mag(vector):  
+def mag(vector):
     return math.sqrt(sum(pow(element, 2) for element in vector))
 
 def rot2d_MFPAD(MFPAD,theta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
@@ -100,22 +100,22 @@ def rot2d_MFPAD(MFPAD,theta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
 
     ctheta_rot=np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,200,100)
     phi_rot=np.array(phi_rot).reshape(72,200,100)
-    
+
     for counter,el in enumerate(MFPAD):
         MFPAD_temp=griddata((phi_rot[counter].reshape(-1),ctheta_rot[counter].reshape(-1)), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
-        MFPAD_rot.append(np.nan_to_num(MFPAD_temp,np.nan))
+        MFPAD_rot.append(np.nan_to_num(MFPAD_temp))
         # MFPAD_rot.append(MFPAD_temp)
-    
+
     return np.array(MFPAD_rot).reshape(72,200,100),ctheta_rot,phi_rot
 
 def rot3d(alpha,beta,gamma):
     """
     It computes the intrinsic rotation according to the convention z,x',y''.
-    The angles are α around -z, β around y, and γ around x. 
+    The angles are α around -z, β around y, and γ around x.
     It returns 3X3 Rtot=Rz(α)Ry(β)Rx(γ) matrix
     ref: https://de.wikipedia.org/wiki/Eulersche_Winkel
     """
-    rot_matrix = np.array([[np.cos(beta)*np.cos(alpha), np.sin(gamma)*np.sin(beta)*np.cos(alpha)-np.cos(gamma)*np.sin(alpha), np.cos(gamma)*np.sin(beta)*np.cos(alpha)+np.sin(gamma)*np.sin(alpha)], 
+    rot_matrix = np.array([[np.cos(beta)*np.cos(alpha), np.sin(gamma)*np.sin(beta)*np.cos(alpha)-np.cos(gamma)*np.sin(alpha), np.cos(gamma)*np.sin(beta)*np.cos(alpha)+np.sin(gamma)*np.sin(alpha)],
                            [np.cos(beta)*np.sin(alpha), np.sin(gamma)*np.sin(beta)*np.sin(alpha)+np.cos(gamma)*np.cos(alpha), np.cos(gamma)*np.sin(beta)*np.sin(alpha)-np.sin(gamma)*np.cos(alpha)],
                            [-np.sin(beta)             , np.sin(gamma)*np.cos(beta)                                          , np.cos(gamma)*np.cos(beta)                                         ]])
     return rot_matrix
@@ -123,12 +123,12 @@ def rot3d(alpha,beta,gamma):
 def rot3d_photo(theta,phi,):
     """
     It computes the intrinsic rotation according to the convention z,x',y''. The angles are phi around -z, theta around y,
-    and because of cylindrical symmetry due to cpl phi around x is  = 0 (better it in not defined). 
+    and because of cylindrical symmetry due to cpl phi around x is  = 0 (better it in not defined).
     It returns 3X3 Rtot=Rz(theta)Ry(phi) with Rx(psi)=I(3).
     ref: https://de.wikipedia.org/wiki/Eulersche_Winkel
     NOTE: REMEBER TO INPUT THE ANGLES IN RAD. IT IS A 2D ARRAY (rank 3) -> 3X3 matrix
     """
-    rot_matrix = np.array([[np.cos(phi)*np.cos(theta), -np.sin(theta), np.sin(phi)*np.cos(theta)], 
+    rot_matrix = np.array([[np.cos(phi)*np.cos(theta), -np.sin(theta), np.sin(phi)*np.cos(theta)],
                            [np.cos(phi)*np.sin(theta), np.cos(theta) , np.sin(phi)*np.sin(theta)],
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
@@ -138,7 +138,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
     Converts the MFPAD into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
     rotates them according to the realtive cosphi_adj_cart_lf,
     converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
-    makes an interpolation of the rotated MFPAD on the new cartesian axes. 
+    makes an interpolation of the rotated MFPAD on the new cartesian axes.
     INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector, phiMM and cosMM linear meshgrid (100,200)
     INPUT_optional: interpolation maethod. default = linear
     OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force bythe phiMM and cosMM
@@ -151,7 +151,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
         x = el * np.sin(theta_rad) * np.cos(phi_rad)
         y = el * np.sin(theta_rad) * np.sin(phi_rad)
         z = el * np.cos(theta_rad)
-        
+
         xyzm = np.stack((x, y, z))
 
         x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0), xyzm)
@@ -164,12 +164,9 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
         phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
         phi.append(phi_temp)
 
-        #np.mgrid = np.meshgrid.T
-        # r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), mag_LF.reshape(-1), (phiMM.T, cosMM.T), method)
-        #el e mag_LF should be the same, try out
         r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
-        r.append(np.nan_to_num(r_temp,np.nan))
-    
+        r.append(np.nan_to_num(r_temp))
+
     return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
 
 import triangulation as tr
@@ -183,7 +180,7 @@ def getamesh(x,y,z,d):
     x,  y,  z = sph.points["x"], sph.points["y"], sph.points["z"]
     pts = sph.points[['x', 'y', 'z']]
     delaun = structures.Delaunay3D(pts)
-    
+
     delaun.compute()
     mesh = delaun.get_mesh()
     tri = mesh[['v1', 'v2', 'v3']].values
@@ -195,7 +192,7 @@ import plotly.graph_objects as go
 
 def makeamesh (x,y,z,d):
     points2d_trace=go.Scatter(x=x, y=y, mode='markers', marker_color='red', marker_size=6)
-    point_trace=go.Scatter(x=x, y=y, 
+    point_trace=go.Scatter(x=x, y=y,
                          mode='markers',
                          name='points',
                          marker_color='red',
@@ -212,9 +209,9 @@ def makeamesh (x,y,z,d):
                         i=i, j=j, k=k,
                         colorscale='deep_r',
                         colorbar_thickness=25,
-                        intensity=d, 
+                        intensity=d,
                         flatshading=True)
-    
+
     points3d=np.array([x,y,z]).T
     delaun_tri3d=tr.triangulation_edges(points3d, tri.simplices)
     return delaunay_tri, point_trace, my_mesh3d, delaun_tri3d
@@ -228,7 +225,7 @@ def smoothgauss(MFPAD, sigmax, sigmay):
     x = cos(theta), y = phi. Phi is twice ctheta and sigma should be the same.
     """
     # NOTE: the right order is y,x (from stackoverflow)
-    sigma = [sigmay,sigmax] 
+    sigma = [sigmay,sigmax]
     Y = sp.ndimage.filters.gaussian_filter(MFPAD, sigma, mode="constant")
     return Y
 
@@ -274,12 +271,13 @@ def cosphi_func(key, cosphi):
 def projection(MFPAD, a):
     """
     Return the projection of the tensor MFPAD on one of the chosen axis a.
+    a=0 cos(theta), a=1 phi.
     The case of MFPAD as a matrix is covered.
     """
     projected=[]
     if len(np.array(MFPAD).shape)>2:
         for j,el in enumerate(MFPAD):
-            projected.append(MFPAD[j].sum(axis=a))
+            projected.append(el.sum(axis=a))
     else:
         projected=(MFPAD.sum(axis=a))
     return np.array(projected)
@@ -288,7 +286,7 @@ def normalise_matrix(a):
     row_sums = a.sum(axis=1)
     new_matrix = a / row_sums[:, np.newaxis]
     return new_matrix
-    
+
 import uproot
 import uproot_methods
 
