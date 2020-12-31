@@ -57,6 +57,32 @@ def sorting_array(inarray, cosphi, phiM, cosM, a):
 
     return np.array(outarray)
 
+def overlaygraph(fig):
+    """
+    overlays the typical graphs with photon coordiantes x=phi, y=cos(theta)
+    """
+    fig.subplots_adjust(hspace = .5, wspace=.5)
+    newax = fig.add_subplot()
+    newax.patch.set_visible(False)
+    newax.minorticks_off()
+    newax.tick_params(which="both", direction='out', right=False, labelright=False)
+
+    newax.spines['bottom'].set_position(('outward', 45))
+    newax.spines['left'].set_position(('outward', 50))
+    newax.spines['right'].set_visible(False)
+    newax.spines['top'].set_visible(False)
+
+    newax.xaxis.set_ticks_position('bottom')
+    newax.xaxis.set_label_position('bottom')
+
+    newax.set_xticks(np.arange(-180,180.1,30, dtype=int))
+    newax.set_xlim([-180,180])
+    newax.set_ylim([-1,1])
+    newax.set_xlabel('phi_photon')
+    newax.set_ylabel('cos(theta)_photon')
+
+    return (newax)
+
 def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
     """
     Remaps the np array b to the new interval [lim_low,lim_high]
