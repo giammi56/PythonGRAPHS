@@ -4,6 +4,59 @@ import math
 from numpy.core.defchararray import array
 import pandas as pd
 from scipy.interpolate import griddata
+from matplotlib import cm
+import matplotlib as mpl
+import matplotlib.colors
+
+
+def matplotlib_to_plotly(cmap, pl_entries):
+    """
+    To be used in cmaptep
+    """
+    h = 1.0/(pl_entries-1)
+    pl_colorscale = []
+
+    for k in range(pl_entries):
+        C = list(map(np.uint8, np.array(cmap(k*h)[:3])*255))
+        pl_colorscale.append([k*h, 'rgb'+str((C[0], C[1], C[2]))])
+
+    return pl_colorscale
+
+def customcmaps():
+    """
+    It intriduces the cmap temperature to be consistent with Philipp graphs both for mpl and plotly.
+    Coverts seismic and magma into plotly format
+    """
+    ########### plotly convertion ###########
+
+    magma_cmap = mpl.cm.get_cmap('magma')
+    seismic_cmap = mpl.cm.get_cmap('seismic')
+
+    magma_rgb = []
+    seismic_rgb = []
+    norm = mpl.colors.Normalize(vmin=0, vmax=255)
+
+    for i in range(0, 255):
+        k = mpl.colors.colorConverter.to_rgb(magma_cmap(norm(i)))
+        magma_rgb.append(k)
+
+    for i in range(0, 255):
+        k = mpl.colors.colorConverter.to_rgb(seismic_cmap(norm(i)))
+        seismic_rgb.append(k)
+
+    Magma_r = matplotlib_to_plotly(magma_cmap, 255)
+    Seismic_r = matplotlib_to_plotly(seismic_cmap, 255)
+
+    ########### Temperautre ###########
+    colors = [[0, "blue"],
+              [0.5, "white"],
+              [0.75, "yellow"],
+              [1, "red"]]
+
+    cmap_temp = matplotlib.colors.LinearSegmentedColormap.from_list("temperature_philipp", colors)
+    cmap_temp_go = go.color_continuous_scale=[(0, "blue"), (0.5, "white"), (0.75, "yellow"), (1,"red")]
+
+    return(cmap_temp, cmap_temp_go, Magma_r, Seismic_r)
 
 def sorting_array(inarray, cosphi, phiM, cosM, a):
     """
