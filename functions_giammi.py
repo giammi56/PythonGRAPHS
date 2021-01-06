@@ -4,9 +4,10 @@ import numpy as np
 import math
 from numpy.core.defchararray import array
 import pandas as pd
-from matplotlib import cm
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import matplotlib.colors
+from matplotlib import cm
 import triangulation as tr
 import scipy as sp
 import scipy.ndimage
@@ -18,14 +19,67 @@ import plotly.graph_objects as go
 import uproot
 import uproot_methods
 
+def avg_func(cosphi):
+    """
+    Shifts an array by the average of the each step. It reduces the lenght of the input array by 1.
+    The input has to have a shape (13,7). Output (12,6).
+    """
+    cosu=np.unique([col[0] for col in cosphi])
+    phiu=np.unique([col[1] for col in cosphi])
+    col1=[(a + b) / 2 for a, b in zip(cosu[::], cosu[1::])]
+    col2=[(a + b) / 2 for a, b in zip(phiu[::], phiu[1::])]
 
-def cosphi_func(key, cosphi):
+    return np.around(np.array(list(itertools.product(col1,col2))),3)
+
+def cosphi_func(key,cosphi):
     ctheta_nc = float((str(key).split("costheta_")[1]).split("_phi")[0])
     phi_nc = float((str(key).split("phi_")[1]).split(";")[0])
     # alternative method with import re
     #ctheta_n=re.search("costheta_(.*)_phi", str(key)).group(1)
     cosphi.append((ctheta_nc, phi_nc))
     return cosphi
+
+def create_gocoords(a=1,reduced=False,source=False):
+    """
+    a=0 go coordiantes arragend according to ascending phi,
+    a=1 (default) coordiantes arragend according to ascending phi.
+    reduced=True calcualtes the coordinates -165<phi<165, -0.85<ctheta<0.85
+    reduced=False (default) calcualtes the coordinates -180<phi<180, -1<ctheta<1
+    #NOTE:
+    according to automatic_72_CPR.f90 from philipp [1,6]: is from [0,P1] -> [cos(0), cos(PHI)] = [1,-1]
+    according to automatic_72_CPR.f90 from philipp [1,12]: is from [-PI,PI]
+    """
+    #optimized range according to philipp
+    phicos_PHOTON = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(0,np.pi,6).tolist())))),3)
+    cosphi_PHOTON = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+
+    if reduced:
+        #manual spacing
+        phicos_PHOTON = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(0.835,-0.835,6).tolist()))),3)
+        cosphi_PHOTON = np.around(np.array(list(itertools.product(np.linspace(0.835,-0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
+
+    #plotly coordiantes arranged according to phi
+    #NOTE: x is always the 12 member array
+    if a==0:
+        xgo_phi=[col[0] for col in phicos_PHOTON]
+        ygo_phi=[col[1] for col in phicos_PHOTON]
+        if source:
+            return(xgo_phi,ygo_phi,phicos_PHOTON,cosphi_PHOTON)
+        else:
+            return(xgo_phi,ygo_phi)
+    elif a==1:
+        #plotly coordiantes arranged according to cos
+        #NOTE: x is always the 12 member array
+        xgo_cos=[col[1] for col in cosphi_PHOTON]
+        ygo_cos=[col[0] for col in cosphi_PHOTON]
+        if source:
+            return(xgo_cos,ygo_cos,phicos_PHOTON,cosphi_PHOTON)
+        else:
+            return(xgo_cos,ygo_cos)
+    else:
+        print("NO cooridnates loaded!")
+    return(0)
+
 
 def customcmaps():
     """
@@ -77,35 +131,44 @@ def getamesh(x,y,z,d):
     I, J, K = tri.T
     return x,y,z,I,J,K
 
-def import_MFPAD(file, loc, MFPAD, cosphi, MFPAD_xy, ctheta, ctheta_c, ctheta_cred, run_MFPAD=0., run_cos=0.):
+def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
     """
     Loads the MFPADs and the cos(theta) from the .root files.
-    6 inputs + a parameter
     NOTE: MFPAD_xy and ctheta_c have originally +1 dimensions compare to the z values.
     For the sake of iminiut, cos(theta) is centered on the middle of the bins.
     """
-    for key, value in file[loc].items():
-        filename=loc+"/"+str(key).split(";")[0].replace("b'","")
+    valueMFPAD=[];valuectheta=[]; #fundamental
+    cosphi_photon=[]; #important
+    xy_phicos_axisMFPAD=[];x_ctheta_axis=[];x_ctheta_axis_cred=[]; #just one
+    for key in file[loc].items():
+        #on linux and uproot4 concatenation of replace
+        filename=loc+"/"+str(key).split(";")[0].replace("b'","").replace("('","").replace("'","")
         if "mfpad3d_engate_costheta" in filename.lower():
-            cosphi=cosphi_func(key,cosphi)
-            #just .numpy for uproot3
+            cosphi_photon=cosphi_func(key,cosphi_photon) #this function appends
+            #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
             temp=np.array(file[filename].to_numpy())
-            MFPAD.append(temp[0]) # it is a list!
+            valueMFPAD.append(temp[0]) # it is a list!
             if run_MFPAD == 0.:
                 #structure for uproot3
-                # MFPAD_xy.append((temp[1][0][0] , temp[1][0][1])) # phi cos(theta) from 2D
+                #xy_phicos_axisMFPAD.append((temp[1][0][0] , temp[1][0][1])) # phi cos(theta) from 2D
                 #structure for uproot4
-                MFPAD_xy.append((temp[1], temp[2])) # phi cos(theta) from 2D
-                run_MFPAD=1.
+                xy_phicos_axisMFPAD.append((temp[1], temp[2])) # phi cos(theta) from 2D
+                run_MFPAD=1. #has to run just ones
         elif "cos(theta)" in filename.lower():
-            #just .numpy for uproot3
+            #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
             temp=np.array(file[filename].to_numpy())
-            ctheta.append(temp[0]) # it is a list!
+            valuectheta.append(temp[0]) # it is a list!
             if run_cos == 0.:
-                ctheta_c.append(temp[1])
-                ctheta_cred.append(np.array((ctheta_c[0][1:] + ctheta_c[0][:-1])/2)) #! reduced of 1 dimension
+                x_ctheta_axis.append(temp[1])
+                x_ctheta_axis_cred.append(np.array((x_ctheta_axis[0][1:] + x_ctheta_axis[0][:-1])/2)) #! reduced of 1 dimension
                 run_cos=1.
-    return MFPAD, cosphi, MFPAD_xy, ctheta, ctheta_c, ctheta_cred
+        else:
+            continue
+    if full:
+        return np.array(valueMFPAD), np.array(valuectheta), np.array(cosphi_photon), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
+    else:
+        return np.array(valueMFPAD), np.array(valuectheta)
+
 
 def mag(vector):
     """
@@ -165,18 +228,21 @@ def normalise_matrix(a,normtype=0):
         new_matrix = a / row_sums[:, np.newaxis]
     else:
         print("Failed to normalise!")
-        new_matrix=a
+        return 0
     return new_matrix
 
-def overlaygraph(fig):
+def overlaygraph(fig,wspace=0.08, hspace=0.08):
     """
-    overlays the typical graphs with photon coordiantes x=phi, y=cos(theta)
+    Overlays the typical graphs with photon coordiantes x=phi, y=cos(theta).
+    Set the space in between the subplots via fig.
     """
-    fig.subplots_adjust(hspace = .5, wspace=.5)
+    # fig.tight_layout() #NOTE goes in conflict with subplots_adjust
+    fig.subplots_adjust(wspace=wspace, hspace=hspace)
+
     newax = fig.add_subplot()
     newax.patch.set_visible(False)
     newax.minorticks_off()
-    newax.tick_params(which="both", direction='out', right=False, labelright=False)
+    newax.tick_params(which="both", direction='out', right=False, labelright=False, labelsize=18)
 
     newax.spines['bottom'].set_position(('outward', 45))
     newax.spines['left'].set_position(('outward', 50))
@@ -188,11 +254,29 @@ def overlaygraph(fig):
 
     newax.set_xticks(np.arange(-180,180.1,30, dtype=int))
     newax.set_xlim([-180,180])
-    newax.set_ylim([-1,1])
     newax.set_xlabel('phi_photon')
+
+    # newax.set_yticks(np.arange(0,180.1,20, dtype=int))
+    # newax.set_ylim([-181,180])
+    newax.set_ylim([1,-1])
+    # newax.set_ylabel('theta_photon')
     newax.set_ylabel('cos(theta)_photon')
 
     return (newax)
+
+def projection(MFPAD, a):
+    """
+    Return the projection of the tensor MFPAD on one of the chosen axis a.
+    a=0 cos(theta), a=1 phi.
+    The case of MFPAD as a matrix is covered.
+    """
+    projected=[]
+    if len(np.array(MFPAD).shape)>2:
+        for j,el in enumerate(MFPAD):
+            projected.append(el.sum(axis=a))
+    else:
+        projected=(MFPAD.sum(axis=a))
+    return np.array(projected)
 
 def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
     """
@@ -220,13 +304,13 @@ def rot2d_MFPAD(MFPAD,ctheta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
             tempct=cth+angle[0]
             if tempct<-1.:
                 ctheta_rot.append(tempct+2.)
-            elif tempct>=1.:
+            elif tempct>1.:
                 ctheta_rot.append(tempct-2.)
             else:
                 ctheta_rot.append(tempct)
 
             tempp=ph+angle[1]
-            if tempp<=-180.:
+            if tempp<-180.:
                 phi_rot.append(tempp+360.)
             elif tempp>180.:
                 phi_rot.append(tempp-360.)
@@ -238,7 +322,7 @@ def rot2d_MFPAD(MFPAD,ctheta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
     phi_rot=np.array(phi_rot).reshape(72,200,100)
 
     for counter,el in enumerate(MFPAD):
-        MFPAD_temp=griddata((phi_rot[counter].reshape(-1),ctheta_rot[counter].reshape(-1)), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
+        MFPAD_temp=griddata(list(zip(phi_rot[counter].reshape(-1),ctheta_rot[counter].reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
         MFPAD_rot.append(np.nan_to_num(MFPAD_temp))
         # MFPAD_rot.append(MFPAD_temp)
 
@@ -256,7 +340,7 @@ def rot3d(alpha,beta,gamma):
                            [-np.sin(beta)             , np.sin(gamma)*np.cos(beta)                                          , np.cos(gamma)*np.cos(beta)                                         ]])
     return rot_matrix
 
-def rot3d_photo(theta,phi,):
+def rot3d_photo(theta,phi):
     """
     It computes the intrinsic rotation according to the convention z,x',y''. The angles are phi around -z, theta around y,
     and because of cylindrical symmetry due to cpl phi around x is  = 0 (better it in not defined).
@@ -302,7 +386,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
         phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
         phi.append(phi_temp)
 
-        r_temp=griddata((phi_temp.reshape(-1),ctheta_temp.reshape(-1)), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
+        r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
         r.append(np.nan_to_num(r_temp))
 
     return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
@@ -351,80 +435,53 @@ def shift_func(a, flag=0.):
         a=a.reshape(-1)
     return a
 
-def avg_func(cosphi):
+def sorting_array(inarray, cosphi, items=[], a=1):
     """
-    Shifts an array by the average of the each step. It reduces the lenght of the input array by 1.
-    The input has to have a shape (13,7). Output (12,6).
-    """
-    cosu=np.unique([col[0] for col in cosphi])
-    phiu=np.unique([col[1] for col in cosphi])
-    col1=[(a + b) / 2 for a, b in zip(cosu[::], cosu[1::])]
-    col2=[(a + b) / 2 for a, b in zip(phiu[::], phiu[1::])]
-
-    return np.around(np.array(list(itertools.product(col1,col2))),3)
-
-def projection(MFPAD, a):
-    """
-    Return the projection of the tensor MFPAD on one of the chosen axis a.
-    a=0 cos(theta), a=1 phi.
-    The case of MFPAD as a matrix is covered.
-    """
-    projected=[]
-    if len(np.array(MFPAD).shape)>2:
-        for j,el in enumerate(MFPAD):
-            projected.append(el.sum(axis=a))
-    else:
-        projected=(MFPAD.sum(axis=a))
-    return np.array(projected)
-
-def sorting_array(inarray, cosphi, phiM, cosM, a):
-    """
-    a is the level according to which values have to be sorted: 1 = cos_light, 2 = phi_light
-    Function to sort the input array according to the labels attached from LMF2ROOT. The lables are stored in cosphi during the loaing.
-    To load sorting the 72 items according to cos(theta) use level = 1, according to phi level = 2. The first level is a string, thereofere
-    is not possible to sort according to it.
+    Sorts the MFPAD or a cos(theta) vector according to either the cos(theta) or the phi photon direction.
+    a is the level according to which values have to be sorted: a = 1 : cos_light, a= 2 : phi_light. The sorting of the second level is True.
+    items (72,) contains the number of elements
     NOTE: for experimental data the default order is according to phi, vice versa for the theoretical MFPADs.
+    NOTE: the original input vector is sortied DESCENDING in cos(theta)
     """
-    outarray=[]
+    #how to check if the non sorted is equal to the processed and non sorted
+    # count=0
+    # for el1, el2 in zip(df1.values.reshape(72,200,100),counts_temp):
+    #     if np.any(el1 == el2):
+    #         count+=1
+    # print (count)
+
     cosn=np.array([col[0] for col in cosphi]); #list
     phin=np.array([col[1] for col in cosphi]); #list
+
     if inarray.ndim>2:
         data = inarray.reshape(72, inarray.shape[1]*inarray.shape[2]).T
         df = pd.DataFrame(
             data=data,
-            index=pd.MultiIndex.from_product([phiM, cosM],names=["phi","cos(theta)"]),
-            columns=['item {}'.format(i) for i in range(72)])
-
+            columns=['item {}'.format(el) for el in items])
     else:
-        cosbin = inarray.shape[1]
         data = inarray.T
         df = pd.DataFrame(
             data=data,
-            index=np.linspace(-1,1,inarray.shape[1]),
             columns=['item {}'.format(i) for i in range(72)])
-
     df1=df.T
     df1["cos_light"]=cosn
     df1["phi_light"]=phin
     df1.set_index("cos_light", append=True, inplace=True) #level=1
     df1.set_index("phi_light", append=True, inplace=True) #level=2
+    if a==1:
+        #kind="mergesort" the concept of stable sorting algorithm
+        #df1.sort_values(by=["cos_light", "phi_light"], inplace=True) #light alternative
+        df1.sort_index(level=(1,2), inplace=True, sort_remaining=True, kind="mergesort")
+    elif a==2:
+        df1.sort_index(level=(2,1), inplace=True, sort_remaining=True, kind="mergesort")
+    else:
+        print("ERROR: No sorting has been performed!")
+        return 0
+
+    df1.reset_index(level=(1,2), drop=True, inplace=True) # removes index
 
     if inarray.ndim>2:
-        dfnew=df1
+        #shape (72,200,100)
+        return df1.values.reshape(72,inarray.shape[1],inarray.shape[2])
     else:
-        #here it transforms the DataBAse into a series in order to sort correctly the cos(theta) column too
-        dfnew=df1.stack()
-
-    #level=2 is the standard for experiment, level=1 for theory
-    #kind="mergesort" the concept of stable sorting algorithm
-    dfnew.sort_index(level=a, inplace=True, kind="mergesort")
-    dfnew.reset_index(level=1, drop=True, inplace=True) # removes cos_light
-    dfnew.reset_index(level=1, drop=True, inplace=True) # removes phi
-
-    if inarray.ndim>2:
-        #fast approach with numpy with transpose to rearrange the order of the axes:
-        outarray=(dfnew.T).values.reshape(inarray.shape[1],inarray.shape[2],72).transpose(2, 0, 1)
-    else:
-        outarray=dfnew.values.reshape(72, inarray.shape[1])
-
-    return np.array(outarray)
+        return df1.values
