@@ -220,16 +220,28 @@ def normalise_matrix(a,normtype=0):
     It normalises a [n,m] matrix.
     It is possibel to select the normalization: type=0,type=1.
     """
-    if normtype==0:
-        row_sums = np.sum(a,axis=1)
-        new_matrix = a / row_sums[:, np.newaxis]
-    elif normtype==1:
-        row_sums = np.linalg.norm(a,axis=1)
-        new_matrix = a / row_sums[:, np.newaxis]
-    else:
-        print("Failed to normalise!")
+    new_matrix=[]
+    if a.shape[1]==72:
+        if normtype==0:
+            for el in a:
+                new_matrix.append(el/np.sum(el,axis=1)[:, np.newaxis])
+        elif normtype==1:
+            for el in a:
+                new_matrix.append(el/np.linalg.norm(el,axis=1)[:, np.newaxis])
+        else:
+            print("Failed to normalise!")
         return 0
-    return new_matrix
+    else:
+        if normtype==0:
+            row_sums = np.sum(a,axis=1)
+            new_matrix = a / row_sums[:, np.newaxis]
+        elif normtype==1:
+            row_sums = np.linalg.norm(a,axis=1)
+            new_matrix = a / row_sums[:, np.newaxis]
+        else:
+            print("Failed to normalise!")
+            return 0
+    return np.array(new_matrix)
 
 def overlaygraph(fig,wspace=0.08, hspace=0.08):
     """
@@ -435,7 +447,7 @@ def shift_func(a, flag=0.):
         a=a.reshape(-1)
     return a
 
-def sorting_array(inarray, cosphi, items=[], a=1):
+def sorting_array(inarray, cosphi, items=[0], a=1):
     """
     Sorts the MFPAD or a cos(theta) vector according to either the cos(theta) or the phi photon direction.
     a is the level according to which values have to be sorted: a = 1 : cos_light, a= 2 : phi_light. The sorting of the second level is True.
@@ -455,7 +467,12 @@ def sorting_array(inarray, cosphi, items=[], a=1):
 
     if inarray.ndim>2:
         data = inarray.reshape(72, inarray.shape[1]*inarray.shape[2]).T
-        df = pd.DataFrame(
+        if np.any(items[0]) == 0: #the case for experimental data
+            df = pd.DataFrame(
+            data=data,
+            columns=['item {}'.format(i) for i in range(72)])
+        else: #the case for theory
+            df = pd.DataFrame(
             data=data,
             columns=['item {}'.format(el) for el in items])
     else:
