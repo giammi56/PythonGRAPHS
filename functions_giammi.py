@@ -394,9 +394,9 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
     rotates them according to the realtive cosphi_adj_cart_lf,
     converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
     makes an interpolation of the rotated MFPAD on the new cartesian axes.
-    INPUT: variable with 72 MFPAD, theta and phi with shape (20000,), cosphi_adj_cart_lf with the 72 pairs of rotations oof the light vector, phiMM and cosMM linear meshgrid (100,200)
+    INPUT: 72 **SORTED** MFPAD, theta and phi with shape (20000,), cosphi_adj_XXX **SORTED ACCORDINGLY TO INPUT** for rotations, phiMM and cosMM linear meshgrid (100,200)
     INPUT_optional: interpolation maethod. default = linear
-    OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force bythe phiMM and cosMM
+    OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force byte phiMM and cosMM
     """
     r=[];ctheta=[];phi=[]
     cosx_LF_temp=[];
@@ -420,7 +420,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
         #atan2 domain  −π < θ ≤ π
         phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
         phi.append(phi_temp)
-
+        #NOTE phiMM.shape=cosMM.shape=(100,200)
         r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
         r.append(np.nan_to_num(r_temp))
 
