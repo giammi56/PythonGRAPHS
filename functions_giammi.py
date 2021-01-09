@@ -43,37 +43,37 @@ def create_gocoords(a=1,reduced=False,source=False):
     """
     a=0 go coordiantes arragend according to ascending phi,
     a=1 (default) coordiantes arragend according to ascending phi.
-    reduced=True calcualtes the coordinates -165<phi<165, -0.85<ctheta<0.85
-    reduced=False (default) calcualtes the coordinates -180<phi<180, -1<ctheta<1
+    reduced=True calcualtes the coordinates phi=[-165,165], ctheta=[0.85,-0.85]
+    reduced=False (default) calcualtes the coordinates phi=[-180,180], ctheta=[1,-1]
     #NOTE:
     according to automatic_72_CPR.f90 from philipp [1,6]: is from [0,P1] -> [cos(0), cos(PHI)] = [1,-1]
     according to automatic_72_CPR.f90 from philipp [1,12]: is from [-PI,PI]
     """
-    #optimized range according to philipp
-    phicos_PHOTON = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(0,np.pi,6).tolist())))),3)
-    cosphi_PHOTON = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+    #FULL range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
+    #NOTE the SECOD element in the intertools is the one to which the array is sorted and goes FIRST column
+    cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+    phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
 
     if reduced:
-        #manual spacing
-        phicos_PHOTON = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(0.835,-0.835,6).tolist()))),3)
-        cosphi_PHOTON = np.around(np.array(list(itertools.product(np.linspace(0.835,-0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
+        #REDUCED range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
+        #this matches the experimental values
+        cosphi_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-0.835,0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
+        phicos_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(-0.835,0.835,6).tolist()))),3)
 
-    #plotly coordiantes arranged according to phi
-    #NOTE: x is always the 12 member array
+    #NOTE: x is always the 12 members array (phi)
+    #      y is always the 6 members array (cos(theta))
     if a==0:
-        xgo_phi=[col[0] for col in phicos_PHOTON]
-        ygo_phi=[col[1] for col in phicos_PHOTON]
+        xgo_phi=[col[0] for col in phicos_PHOTON_cos]
+        ygo_phi=[col[1] for col in phicos_PHOTON_cos]
         if source:
-            return(xgo_phi,ygo_phi,phicos_PHOTON,cosphi_PHOTON)
+            return(xgo_phi,ygo_phi,np.flip(phicos_PHOTON_cos,axis=1))
         else:
             return(xgo_phi,ygo_phi)
     elif a==1:
-        #plotly coordiantes arranged according to cos
-        #NOTE: x is always the 12 member array
-        xgo_cos=[col[1] for col in cosphi_PHOTON]
-        ygo_cos=[col[0] for col in cosphi_PHOTON]
+        xgo_cos=[col[1] for col in cosphi_PHOTON_phi]
+        ygo_cos=[col[0] for col in cosphi_PHOTON_phi]
         if source:
-            return(xgo_cos,ygo_cos,phicos_PHOTON,cosphi_PHOTON)
+            return(xgo_cos,ygo_cos,cosphi_PHOTON_phi)
         else:
             return(xgo_cos,ygo_cos)
     else:
@@ -84,7 +84,7 @@ def create_gocoords(a=1,reduced=False,source=False):
 def customcmaps():
     """
     It intriduces the cmap temperature to be consistent with Philipp graphs both for mpl and plotly.
-    Coverts seismic and magma into plotly format
+    Coverts seismic and magma into plotly format.
     """
     ########### plotly convertion ###########
 
@@ -147,7 +147,8 @@ def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
             cosphi_photon=cosphi_func(key,cosphi_photon) #this function appends
             #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
             temp=np.array(file[filename].to_numpy())
-            valueMFPAD.append(temp[0]) # it is a list!
+            valueMFPAD.append(file[filename].values()) # it is a list!
+            # valueMFPAD.append(temp[0]) # alterative way
             if run_MFPAD == 0.:
                 #structure for uproot3
                 #xy_phicos_axisMFPAD.append((temp[1][0][0] , temp[1][0][1])) # phi cos(theta) from 2D
@@ -157,7 +158,8 @@ def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
         elif "cos(theta)" in filename.lower():
             #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
             temp=np.array(file[filename].to_numpy())
-            valuectheta.append(temp[0]) # it is a list!
+            valuectheta.append(file[filename].values()) # it is a list!
+            # valuectheta.append(temp[0]) # alterative way
             if run_cos == 0.:
                 x_ctheta_axis.append(temp[1])
                 x_ctheta_axis_cred.append(np.array((x_ctheta_axis[0][1:] + x_ctheta_axis[0][:-1])/2)) #! reduced of 1 dimension
@@ -169,6 +171,20 @@ def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
     else:
         return np.array(valueMFPAD), np.array(valuectheta)
 
+def import_MFPAD3D(file, loc):
+    """
+    Loads the MFPADs and the cos(theta) from the 3D root file
+    It excrats cosphi photon as number of MFPAD, phi and cos electron axis
+    NOTE: the final shape is (72,18,36)
+    """
+    valueMFPAD=[]
+    for key in file[loc].items():
+        filename=loc+"/"+str(key).split(";")[0].replace("b'","").replace("('","").replace("'","")
+        if "mfpad_mathematica" in filename.lower():
+            valueMFPAD=(file[filename].values()).T # it is a list!
+        else:
+            continue
+    return np.array(valueMFPAD)
 
 def mag(vector):
     """
@@ -215,10 +231,11 @@ def makeamesh (x,y,z,d):
     delaun_tri3d=tr.triangulation_edges(points3d, tri.simplices)
     return delaunay_tri, point_trace, my_mesh3d, delaun_tri3d
 
-def normalise_matrix(a,normtype=0):
+def normalise_matrix(a,normtype=2):
     """
     It normalises a [n,m] matrix.
-    It is possibel to select the normalization: type=0,type=1.
+    Type 0 and 1 are normalized along lines.
+    Typee 2 is a scaling on the integral of the matrix.
     """
     new_matrix=[]
     if a.shape[1]==72:
@@ -228,6 +245,9 @@ def normalise_matrix(a,normtype=0):
         elif normtype==1:
             for el in a:
                 new_matrix.append(el/np.linalg.norm(el,axis=1)[:, np.newaxis])
+        elif normtype==2:
+            for el in a:
+                new_matrix.append(el/np.sum(el))
         else:
             print("Failed to normalise!")
         return 0
@@ -238,6 +258,8 @@ def normalise_matrix(a,normtype=0):
         elif normtype==1:
             row_sums = np.linalg.norm(a,axis=1)
             new_matrix = a / row_sums[:, np.newaxis]
+        elif normtype==2:
+            new_matrix = a / np.sum(a)
         else:
             print("Failed to normalise!")
             return 0
@@ -276,18 +298,19 @@ def overlaygraph(fig,wspace=0.08, hspace=0.08):
 
     return (newax)
 
-def projection(MFPAD, a):
+def projection(MFPAD, alongaxis):
     """
-    Return the projection of the tensor MFPAD on one of the chosen axis a.
-    a=0 cos(theta), a=1 phi.
-    The case of MFPAD as a matrix is covered.
+    Return the sum along the chosen axis:
+    axis=0 means along lines, therefore returns cos(theta)
+    axis=1 means along columns, therefore returns cphi.
+    Boths cased of MFPAD tensor and matrix are covered.
     """
     projected=[]
     if len(np.array(MFPAD).shape)>2:
         for j,el in enumerate(MFPAD):
-            projected.append(el.sum(axis=a))
+            projected.append(el.sum(axis=alongaxis))
     else:
-        projected=(MFPAD.sum(axis=a))
+        projected=(MFPAD.sum(axis=alongaxis))
     return np.array(projected)
 
 def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
@@ -447,13 +470,13 @@ def shift_func(a, flag=0.):
         a=a.reshape(-1)
     return a
 
-def sorting_array(inarray, cosphi, items=[0], a=1):
+def sorting_array(inarray, theory=True, items=[0], a=1):
     """
     Sorts the MFPAD or a cos(theta) vector according to either the cos(theta) or the phi photon direction.
     a is the level according to which values have to be sorted: a = 1 : cos_light, a= 2 : phi_light. The sorting of the second level is True.
     items (72,) contains the number of elements
     NOTE: for experimental data the default order is according to phi, vice versa for the theoretical MFPADs.
-    NOTE: the original input vector is sortied DESCENDING in cos(theta)
+    NOTE: the original input vector is cos(theta)=[1,-1], theta=[-180,180] and to match this order items should be coherent
     """
     #how to check if the non sorted is equal to the processed and non sorted
     # count=0
@@ -461,25 +484,48 @@ def sorting_array(inarray, cosphi, items=[0], a=1):
     #     if np.any(el1 == el2):
     #         count+=1
     # print (count)
-
-    cosn=np.array([col[0] for col in cosphi]); #list
-    phin=np.array([col[1] for col in cosphi]); #list
-
+    cosn=[]
+    phin=[]
     if inarray.ndim>2:
         data = inarray.reshape(72, inarray.shape[1]*inarray.shape[2]).T
-        if np.any(items[0]) == 0: #the case for experimental data
+        if theory: #the case for experimental data
+            #NOTE the relation between the photon angles and the items is FIXED
+            fixedth = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+            cosn=np.array([col[0] for col in fixedth]); #list
+            phin=np.array([col[1] for col in fixedth]); #list
             df = pd.DataFrame(
-            data=data,
-            columns=['item {}'.format(i) for i in range(72)])
+                data=data,
+                columns=['item {}'.format(el) for el in items])
         else: #the case for theory
+            #NOTE the relation between the photon angles and the items is FIXED
+            fixedexp = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
+            #NOTE PICK FROM THE RIGHT COLUMN!
+            cosn=np.array([col[1] for col in fixedexp]); #list
+            phin=np.array([col[0] for col in fixedexp]); #list
             df = pd.DataFrame(
-            data=data,
-            columns=['item {}'.format(el) for el in items])
+                data=data,
+                columns=['item {}'.format(i) for i in range(72)])
     else:
         data = inarray.T
-        df = pd.DataFrame(
-            data=data,
-            columns=['item {}'.format(i) for i in range(72)])
+        if theory: #the case for experimental data
+            #NOTE the relation between the photon angles and the items is FIXED
+            fixedth = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+            cosn=np.array([col[0] for col in fixedth]); #list
+            phin=np.array([col[1] for col in fixedth]); #list
+            df = pd.DataFrame(
+                data=data,
+                columns=['item {}'.format(el) for el in items])
+
+        else: #the case for theory
+            #NOTE the relation between the photon angles and the items is FIXED
+            fixedexp = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
+            #NOTE PICK FROM THE RIGHT COLUMN!
+            cosn=np.array([col[1] for col in fixedexp]); #list
+            phin=np.array([col[0] for col in fixedexp]); #list
+            df = pd.DataFrame(
+                data=data,
+                columns=['item {}'.format(i) for i in range(72)])
+
     df1=df.T
     df1["cos_light"]=cosn
     df1["phi_light"]=phin
