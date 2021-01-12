@@ -101,6 +101,7 @@ def plotminuit(x, y, err, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=300, k=5, size=
 
 def plotminuit_noerr(x, y, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=300, k=5, size=12):
     """
+    Aspect ration between axis = 1
     """
     x_data_new = np.linspace(x.min(), x.max(), n)
     #NOTE: x_data has to be monotonicalli INCREASING!
