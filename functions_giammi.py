@@ -1,3 +1,4 @@
+import cv2
 import itertools
 from itertools import count
 import numpy as np
@@ -16,6 +17,7 @@ from scipy.interpolate import griddata
 from pyntcloud import PyntCloud, structures
 import plotly
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import uproot
 import uproot_methods
 
@@ -181,7 +183,7 @@ def import_MFPAD3D(file, loc):
     for key in file[loc].items():
         filename=loc+"/"+str(key).split(";")[0].replace("b'","").replace("('","").replace("'","")
         if "mfpad_mathematica" in filename.lower():
-            valueMFPAD=(file[filename].values()).T # it is a list!
+            valueMFPAD=(file[filename].values()) # it is a list!
         else:
             continue
     return np.array(valueMFPAD)
@@ -265,13 +267,14 @@ def normalise_matrix(a,normtype=2):
             return 0
     return np.array(new_matrix)
 
-def overlaygraph(fig,wspace=0.08, hspace=0.08):
+def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
     """
     Overlays the typical graphs with photon coordiantes x=phi, y=cos(theta).
     Set the space in between the subplots via fig.
     """
     # fig.tight_layout() #NOTE goes in conflict with subplots_adjust
     fig.subplots_adjust(wspace=wspace, hspace=hspace)
+    fig.suptitle(title) #,fontsize=20)
 
     newax = fig.add_subplot()
     newax.patch.set_visible(False)
@@ -298,6 +301,75 @@ def overlaygraph(fig,wspace=0.08, hspace=0.08):
 
     return (newax)
 
+def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
+    """
+    limits=[min,max,size]
+    """
+    cmap_temp, cmap_temp_go, Magma_r, Seismic_r = customcmaps()
+
+    fig = go.Figure()
+    if len(limits)>0:
+        fig.add_trace(go.Contour(z=param_matrix[:,0,0], x=xgo, y=ygo, line_smoothing=0.75, colorscale=cmap_temp_go,contours=dict(start=limits[0], end=limits[1], size=limits[2])))
+    else:
+        fig.add_trace(go.Contour(z=param_matrix[:,0,0], x=xgo, y=ygo, line_smoothing=0.75, colorscale=cmap_temp_go))
+    fig.update_layout(
+    title={
+        'text': "b1 map",'y':0.98,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+    xaxis_title='phi_photon [DEG]',
+    yaxis_title='cos(theta) [adm]',
+    # legend_title="Legend Title",
+    showlegend=False,
+    # autosize=False,
+    width=560,
+    height=500,
+    margin=dict(l=10,r=10,b=10,t=35)
+    )
+    fig.write_image("../PYTHON_graphs/OUTPUTS/plotly/"+name+".png")
+    fig.write_html("../PYTHON_graphs/OUTPUTS/plotly/"+name+".html")
+
+    return(fig)
+
+def plotgo_multiple(param_matrix, xgo, ygo, name, limits=[], tweak=False):
+    """
+    limits=[min,max,size]
+    """
+    cmap_temp, cmap_temp_go, Magma_r, Seismic_r = customcmaps()
+
+    fig = go.Figure()
+    fig = make_subplots(rows=6, cols=1, shared_xaxes=True, vertical_spacing=0.015)
+
+    for i in range(6):
+        if tweak:
+            if i==1 or i==3:
+                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
+                colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[0][0], end=limits[0][1], size=limits[0][2])), i+1, 1)
+            else:
+                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
+                colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[1][0], end=limits[1][1], size=limits[1][2])), i+1, 1)
+        else:
+            if i==1 or i==3 or i==5:
+                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
+            colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[0][0], end=limits[0][1], size=limits[0][2])), i+1, 1)
+            else:
+                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
+            colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[1][0], end=limits[1][1], size=limits[1][2])), i+1, 1)
+    fig.update_layout(
+        title={'text': "b1-6 parameters maps",'y':0.99,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+        # xaxis_title='phi_photon [DEG]',
+        # coloraxis=dict(colorscale=Seismic_r),
+        # showlegend=False,
+        autosize=False,
+        width=420,
+        height=1500,
+        margin=dict(l=10,r=10,b=10,t=45)
+        )
+    fig.update_xaxes(title_text="phi_photon [DEG]", row=6, col=1)
+    fig.update_yaxes(title_text='cos(theta) [adm]', row=3, col=1)
+
+    fig.write_image("../PYTHON_graphs/OUTPUTS/plotly/"+name+".png")
+    fig.write_html("../PYTHON_graphs/OUTPUTS/plotly/"+name+".html")
+    return(fig)
+
 def projection(MFPAD, alongaxis):
     """
     Return the sum along the chosen axis:
@@ -313,18 +385,59 @@ def projection(MFPAD, alongaxis):
         projected=(MFPAD.sum(axis=alongaxis))
     return np.array(projected)
 
-def remap(b,lim1_low,lim1_high,lim2_low,lim2_high):
+def remap(b,lim1_low,lim1_high,lim2_low=0,lim2_high=0, rounding=False):
     """
     Remaps the np.array b of tuples [(col1,col2)] to the new interval [lim_low,lim_high] for both columns.
     It rounds the numbers to the third decimals.
     """
-    col1=np.array([col[0] for col in b])
-    col2=np.array([col[1] for col in b])
-    col1 = lim1_low + np.divide(lim1_high-lim1_low , np.amax(col1)-np.amin(col1)) * (col1-np.amin(col1))
-    col2 = lim2_low + np.divide(lim2_high-lim2_low , np.amax(col2)-np.amin(col2)) * (col2-np.amin(col2))
-    b=zip(col1,col2)
-    b=np.around(b,3)
-    return b
+    if len(b.shape)>1:
+        col1=np.array([col[0] for col in b])
+        col2=np.array([col[1] for col in b])
+        col1 = lim1_low + np.divide(lim1_high-lim1_low , np.amax(col1)-np.amin(col1)) * (col1-np.amin(col1))
+        col2 = lim2_low + np.divide(lim2_high-lim2_low , np.amax(col2)-np.amin(col2)) * (col2-np.amin(col2))
+        out=list(zip(col1,col2))
+        if rounding:
+            out=np.around(b,3)
+    else:
+        out = lim1_low + np.divide(lim1_high-lim1_low , np.amax(b)-np.amin(b)) * (b-np.amin(b))
+        if rounding:
+            out=np.around(b,3)
+    return out
+
+def rot2d_MFPADcv2(MFPAD,cosphi_adj):
+    """
+    """
+    MFPAD_rot=[]
+    sx=MFPAD[0].shape[0] #200
+    sy=MFPAD[0].shape[1] #100
+    #REMAPPING ctetha -1+1 to 0 100, and phi from -180+180 to 0 200 in this order (pixel-like)
+    cosphi_pixel = remap(cosphi_adj,-sx/2,sx/2,-sy/2,sy/2)
+
+    for el, shift in zip(MFPAD,cosphi_pixel):
+        xmap = np.zeros((el.shape[1], el.shape[0]), np.float32)
+        ymap = np.zeros((el.shape[1], el.shape[0]), np.float32)
+        for y in range(el.shape[1]):
+            for x in range(el.shape[0]):
+                ynew=y+shift[0]
+                if ynew<0.:
+                    ymap[y,x] = ynew+el.shape[1]
+                elif ynew>=el.shape[1]:
+                    ymap[y,x] = ynew-el.shape[1]
+                else:
+                    ymap[y,x] = ynew
+
+                xnew=x+shift[1]
+                if xnew<0.:
+                    xmap[y,x] = xnew+el.shape[0]
+                elif xnew>=el.shape[0]:
+                    xmap[y,x] = xnew-el.shape[0]
+                else:
+                    xmap[y,x] = xnew
+
+        MFPAD_rot.append(cv2.remap(el, xmap, ymap, cv2.INTER_LINEAR))
+
+    return  np.array(MFPAD_rot).reshape(72,200,100)
+
 
 def rot2d_MFPAD(MFPAD,ctheta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
     """
@@ -362,7 +475,6 @@ def rot2d_MFPAD(MFPAD,ctheta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
         # MFPAD_rot.append(MFPAD_temp)
 
     return np.array(MFPAD_rot).reshape(72,200,100),ctheta_rot,phi_rot
-
 def rot3d(alpha,beta,gamma):
     """
     It computes the intrinsic rotation according to the convention z,x',y''.
