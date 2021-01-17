@@ -177,7 +177,7 @@ def import_MFPAD3D(file, loc):
     """
     Loads the MFPADs and the cos(theta) from the 3D root file
     It excrats cosphi photon as number of MFPAD, phi and cos electron axis
-    NOTE: the final shape is (72,18,36)
+    NOTE: the final shape is (72,18,36), theroefore each of the 72 MPFAD is transposed comapre to the single inputs
     """
     valueMFPAD=[]
     for key in file[loc].items():
@@ -186,7 +186,8 @@ def import_MFPAD3D(file, loc):
             valueMFPAD=(file[filename].values()) # it is a list!
         else:
             continue
-    return np.array(valueMFPAD)
+    #has to be transposed to match the sum
+    return np.array(valueMFPAD.T)
 
 def mag(vector):
     """
@@ -305,16 +306,22 @@ def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
     """
     limits=[min,max,size]
     """
+    ch_en=str(name).split("_")
     cmap_temp, cmap_temp_go, Magma_r, Seismic_r = customcmaps()
+    #takes in account the shape of the input
+    if len(param_matrix.shape)>2:
+        z=param_matrix[:,0,0]
+    else:
+        z=param_matrix
 
     fig = go.Figure()
     if len(limits)>0:
-        fig.add_trace(go.Contour(z=param_matrix[:,0,0], x=xgo, y=ygo, line_smoothing=0.75, colorscale=cmap_temp_go,contours=dict(start=limits[0], end=limits[1], size=limits[2])))
+        fig.add_trace(go.Contour(z=z, x=xgo, y=ygo, line_smoothing=0.75, colorscale=cmap_temp_go,contours=dict(start=limits[0], end=limits[1], size=limits[2])))
     else:
-        fig.add_trace(go.Contour(z=param_matrix[:,0,0], x=xgo, y=ygo, line_smoothing=0.75, colorscale=cmap_temp_go))
+        fig.add_trace(go.Contour(z=z, x=xgo, y=ygo, line_smoothing=0.75, colorscale=cmap_temp_go))
     fig.update_layout(
     title={
-        'text': "b1 map",'y':0.98,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+        'text': "b1 map"+ch_en[-2],'y':0.98,'x':0.5,'xanchor': 'center','yanchor': 'top'},
     xaxis_title='phi_photon [DEG]',
     yaxis_title='cos(theta) [adm]',
     # legend_title="Legend Title",
@@ -333,6 +340,7 @@ def plotgo_multiple(param_matrix, xgo, ygo, name, limits=[], tweak=False):
     """
     limits=[min,max,size]
     """
+    ch_en=str(name).split("_")
     cmap_temp, cmap_temp_go, Magma_r, Seismic_r = customcmaps()
 
     fig = go.Figure()
@@ -354,7 +362,7 @@ def plotgo_multiple(param_matrix, xgo, ygo, name, limits=[], tweak=False):
                 fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
             colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[1][0], end=limits[1][1], size=limits[1][2])), i+1, 1)
     fig.update_layout(
-        title={'text': "b1-6 parameters maps",'y':0.99,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+        title={'text': "b1-6 parameters maps "+ch_en[-2],'y':0.99,'x':0.5,'xanchor': 'center','yanchor': 'top'},
         # xaxis_title='phi_photon [DEG]',
         # coloraxis=dict(colorscale=Seismic_r),
         # showlegend=False,
