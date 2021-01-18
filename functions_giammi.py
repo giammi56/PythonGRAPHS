@@ -418,29 +418,31 @@ def rot2d_MFPADcv2(MFPAD,cosphi_adj):
     MFPAD_rot=[]
     sx=MFPAD[0].shape[0] #200
     sy=MFPAD[0].shape[1] #100
+
     #REMAPPING ctetha -1+1 to 0 100, and phi from -180+180 to 0 200 in this order (pixel-like)
-    cosphi_pixel = remap(cosphi_adj,-sx/2,sx/2,-sy/2,sy/2)
+    cosphi_pixel = remap(cosphi_adj,-sy,sy,-sx,sx)
 
     for el, shift in zip(MFPAD,cosphi_pixel):
-        xmap = np.zeros((el.shape[1], el.shape[0]), np.float32)
-        ymap = np.zeros((el.shape[1], el.shape[0]), np.float32)
-        for y in range(el.shape[1]):
-            for x in range(el.shape[0]):
-                ynew=y+shift[0]
-                if ynew<0.:
-                    ymap[y,x] = ynew+el.shape[1]
-                elif ynew>=el.shape[1]:
-                    ymap[y,x] = ynew-el.shape[1]
-                else:
-                    ymap[y,x] = ynew
+        xmap = np.zeros((el.shape[0], el.shape[1]), np.float32)
+        ymap = np.zeros((el.shape[0], el.shape[1]), np.float32)
 
-                xnew=x+shift[1]
-                if xnew<0.:
-                    xmap[y,x] = xnew+el.shape[0]
-                elif xnew>=el.shape[0]:
-                    xmap[y,x] = xnew-el.shape[0]
+        for y in range(el.shape[0]):
+            for x in range(el.shape[1]):
+                xnew=x+shift[0] #NOTE x is the 100 axis -> cos(theta)
+                if xnew>=el.shape[1]:
+                    xmap[y,x] = xnew-el.shape[1]
+                elif xnew<0.:
+                    xmap[y,x] = el.shape[1]-x
                 else:
                     xmap[y,x] = xnew
+
+                ynew=y+shift[1]
+                if ynew>=el.shape[0]:
+                    ymap[y,x] = ynew-el.shape[0]
+                elif ynew<0.:
+                    ymap[y,x] = el.shape[0]-y
+                else:
+                    ymap[y,x] = ynew
 
         MFPAD_rot.append(cv2.remap(el, xmap, ymap, cv2.INTER_LINEAR))
 
