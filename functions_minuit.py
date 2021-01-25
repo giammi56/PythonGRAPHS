@@ -55,15 +55,54 @@ class BetterLeastSquaresNoError(LeastSquaresNoError):
         super().__init__(model, x, y)
         self.func_code = make_func_code(describe(model)[1:])
 
-
 def PECD6(x, b1, b2, b3, b4, b5, b6):
-    return ((b1*x + 0.5*b3*(5*x**3-3*x) +0.125*b5*(63*x**5-70*x**3+15*x)) / (1 + 0.5*b2*(3*x**2-1) + 0.125*b4*(35*x**4-30*x**2+3) + 0.0625*b6*(231*x**6-315*x**4+105*x**2-5)))
+    """
+    NOTE: the sign of b2 is correct, the minus comes from the comparison with the linearly polarized light
+    """
+    return ((b1*x + 0.5*b3*(5*x**3-3*x) + 0.125*b5*(63*x**5-70*x**3+15*x)) / (1 - 0.5*b2*(3*x**2-1) - 0.125*b4*(35*x**4-30*x**2+3) - 0.0625*b6*(231*x**6-315*x**4+105*x**2-5)))
+
+def PECD2(x, b1, b2):
+    """
+    NOTE: the sign of b2 is correct, the minus comes from the comparison with the linearly polarized light
+    """
+    return (b1*x) / (1 - 0.5*b2*(3*x**2-1))
+
+def intesity_cos(x, sigma, b1, b2):
+    """
+    NOTE: the sign of b2 is correct, the minus comes from the comparison with the linearly polarized light
+    """
+    return (sigma/(4*np.pi) * (1 + b1*x - 0.5*b2*(3*x**2-1)))
 
 def iminuit_err(x,y,err,limits):
     """
     """
     lsqerr = BetterLeastSquares(PECD6, x, y, err)
     m = Minuit(lsqerr,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0) # initial values are 0 by default
+    m.limits = limits
+    m.errordef = Minuit.LEAST_SQUARES
+    m.migrad() # run optimiser
+    m.hesse() # run covariance estimator
+
+    return m
+
+def iminuit_err2(x,y,err,limits):
+    """
+    """
+    lsqerr = BetterLeastSquares(PECD2, x, y, err)
+    m = Minuit(lsqerr,b1=0,b2=0) # initial values are 0 by default
+    m.limits = limits
+    m.errordef = Minuit.LEAST_SQUARES
+    m.migrad() # run optimiser
+    m.hesse() # run covariance estimator
+
+    return m
+
+
+def iminuit_err_cos(x,y,err,limits):
+    """
+    """
+    lsqerr = BetterLeastSquares(intesity_cos, x, y, err)
+    m = Minuit(lsqerr,sigma=0,b1=0,b2=0) # initial values are 0 by default
     m.limits = limits
     m.errordef = Minuit.LEAST_SQUARES
     m.migrad() # run optimiser
@@ -94,6 +133,40 @@ def plotminuit(x, y, err, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=300, k=5, size=
     ax.errorbar(x,y, err, fmt="o")
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    ax.tick_params(labelsize=size)
+    # ax.axis('off')
+
+    return(ax)
+
+def plotminuit2(x, y, err, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=300, k=5, size=12):
+    """
+    """
+    x_data_new = np.linspace(x.min(), x.max(), n)
+    #NOTE: x_data has to be monotonicalli INCREASING!
+    bspl = make_interp_spline(x, PECD2(x, *m.values), k)
+
+    ax.axhline(0, color='black', alpha=0.2, lw=2)
+    ax.plot(x_data_new, bspl(x_data_new))
+    ax.errorbar(x,y, err, fmt="o")
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.tick_params(labelsize=size)
+    # ax.axis('off')
+
+    return(ax)
+
+
+def plotminuit_cos(x, y, err, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=30, k=5, size=12):
+    """
+    """
+    x_data_new = np.linspace(x.min(), x.max(), n)
+    #NOTE: x_data has to be monotonicalli INCREASING!
+    bspl = make_interp_spline(x, intesity_cos(x, *m.values), k)
+
+    ax.plot(x_data_new, bspl(x_data_new))
+    ax.errorbar(x,y, err, fmt="o")
+    ax.set_xlim(xlim)
+    # ax.set_ylim(ylim)
     ax.tick_params(labelsize=size)
     # ax.axis('off')
 
