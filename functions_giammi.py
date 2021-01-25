@@ -1,4 +1,3 @@
-import cv2
 import itertools
 from itertools import count
 import numpy as np
@@ -33,6 +32,39 @@ def avg_func(cosphi):
 
     return np.around(np.array(list(itertools.product(col1,col2))),3)
 
+def clippedcolorbar(CS, **kwargs):
+    """
+    use vmin and vmax in contour or and use there the keyword extend="both".
+    https://stackoverflow.com/questions/43150687/colorbar-limits-are-not-respecting-set-vmin-vmax-in-plt-contourf-how-can-i-more
+    """
+    from matplotlib.cm import ScalarMappable
+    from numpy import arange, floor, ceil
+    fig = CS.ax.get_figure()
+    vmin = CS.get_clim()[0]
+    vmax = CS.get_clim()[1]
+    m = ScalarMappable(cmap=CS.get_cmap())
+    m.set_array(CS.get_array())
+    m.set_clim(CS.get_clim())
+    step = CS.levels[1] - CS.levels[0]
+    cliplower = CS.zmin<vmin
+    clipupper = CS.zmax>vmax
+    noextend = 'extend' in kwargs.keys() and kwargs['extend']=='neither'
+    # set the colorbar boundaries
+    boundaries = arange((floor(vmin/step)-1+1*(cliplower and noextend))*step, (ceil(vmax/step)+1-1*(clipupper and noextend))*step, step)
+    kwargs['boundaries'] = boundaries
+    # if the z-values are outside the colorbar range, add extend marker(s)
+    # This behavior can be disabled by providing extend='neither' to the function call
+    if not('extend' in kwargs.keys()) or kwargs['extend'] in ['min','max']:
+        extend_min = cliplower or ( 'extend' in kwargs.keys() and kwargs['extend']=='min' )
+        extend_max = clipupper or ( 'extend' in kwargs.keys() and kwargs['extend']=='max' )
+        if extend_min and extend_max:
+            kwargs['extend'] = 'both'
+        elif extend_min:
+            kwargs['extend'] = 'min'
+        elif extend_max:
+            kwargs['extend'] = 'max'
+    return fig.colorbar(m, **kwargs)
+
 def cosphi_func(key,cosphi):
     ctheta_nc = float((str(key).split("costheta_")[1]).split("_phi")[0])
     phi_nc = float((str(key).split("phi_")[1]).split(";")[0])
@@ -53,14 +85,14 @@ def create_gocoords(a=1,reduced=False,source=False):
     """
     #FULL range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
     #NOTE the SECOD element in the intertools is the one to which the array is sorted and goes FIRST column
-    cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
-    phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
-
     if reduced:
         #REDUCED range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
         #this matches the experimental values
-        cosphi_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-0.835,0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
-        phicos_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(-0.835,0.835,6).tolist()))),3)
+        cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-0.835,0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
+        phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(-0.835,0.835,6).tolist()))),3)
+    else:
+        cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+        phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
 
     #NOTE: x is always the 12 members array (phi)
     #      y is always the 6 members array (cos(theta))
@@ -119,6 +151,26 @@ def customcmaps():
 
     return(cmap_temp, cmap_temp_go, Magma_r, Seismic_r)
 
+def error_calc(a,b,aerr,berr,error_type="PECD"):
+    """
+    Performs the propagation of error for several operations. No covarience is taken into account.
+    keyword: PECD, SUM, DIFF, PROD, DIV.
+    NOTE: in PECD xsum is the same for sum and diff, therefore the coefficient is 1.
+    https://faraday.physics.utoronto.ca/PVB/Harrison/ErrorAnalysis/Propagation.html
+    """
+    if error_type == "PECD":
+        xsum=np.add(a,b)
+        # xdiff=np.subtract(a,b)
+        sumerr=np.sqrt(aerr**2+berr**2)
+        return np.sqrt((sumerr/xsum)**2+(sumerr/xsum)**2)
+        # return np.divide(xsum,xdiff)*np.sqrt((sumerr/xsum)**2+(sumerr/xdiff)**2)
+    elif error_type == "SUM" or error_type == "DIFF":
+        return np.sqrt(aerr**2+berr**2)
+    elif error_type == "PROD":
+        return np.multiply(a,b)*np.sqrt((aerr/a)**2+(berr/b)**2)
+    elif error_type == "DIV":
+        return np.divide(a,b)*np.sqrt((aerr/a)**2+(berr/b)**2)
+
 def getamesh(x,y,z,d):
     temp = pd.DataFrame(np.hstack((x[:,None], y[:,None], z[:,None])))
     temp.columns = ["x", "y", "z"]
@@ -139,17 +191,16 @@ def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
     NOTE: MFPAD_xy and ctheta_c have originally +1 dimensions compare to the z values.
     For the sake of iminiut, cos(theta) is centered on the middle of the bins.
     """
-    valueMFPAD=[];valuectheta=[]; #fundamental
+    valueMFPAD=[];valuectheta=[];valuectheta_err=[]; #fundamental
     cosphi_photon=[]; #important
     xy_phicos_axisMFPAD=[];x_ctheta_axis=[];x_ctheta_axis_cred=[]; #just one
     for key in file[loc].items():
         #on linux and uproot4 concatenation of replace
-        filename=loc+"/"+str(key).split(";")[0].replace("b'","").replace("('","").replace("'","")
-        if "mfpad3d_engate_costheta" in filename.lower():
+        if "MFPAD3D_engate_costheta_" in key[0]:
             cosphi_photon=cosphi_func(key,cosphi_photon) #this function appends
             #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
-            temp=np.array(file[filename].to_numpy())
-            valueMFPAD.append(file[filename].values()) # it is a list!
+            temp=np.array(file[loc+key[0]].to_numpy())
+            valueMFPAD.append(file[loc+key[0]].values()) # it is a list!
             # valueMFPAD.append(temp[0]) # alterative way
             if run_MFPAD == 0.:
                 #structure for uproot3
@@ -157,10 +208,11 @@ def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
                 #structure for uproot4
                 xy_phicos_axisMFPAD.append((temp[1], temp[2])) # phi cos(theta) from 2D
                 run_MFPAD=1. #has to run just ones
-        elif "cos(theta)" in filename.lower():
+        elif "cos(theta)" in key[0]:
             #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
-            temp=np.array(file[filename].to_numpy())
-            valuectheta.append(file[filename].values()) # it is a list!
+            temp=np.array(file[loc+key[0]].to_numpy())
+            valuectheta.append(file[loc+key[0]].values()) # it is a list!
+            valuectheta_err.append(file[loc+key[0]].errors()) # it is a list!
             # valuectheta.append(temp[0]) # alterative way
             if run_cos == 0.:
                 x_ctheta_axis.append(temp[1])
@@ -169,9 +221,9 @@ def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
         else:
             continue
     if full:
-        return np.array(valueMFPAD), np.array(valuectheta), np.array(cosphi_photon), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
+        return np.array(valueMFPAD), np.array(valuectheta), np.array(valuectheta_err), np.array(cosphi_photon), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
     else:
-        return np.array(valueMFPAD), np.array(valuectheta)
+        return np.array(valueMFPAD), np.array(valuectheta), np.array(valuectheta_err)
 
 def import_MFPAD3D(file, loc):
     """
@@ -181,13 +233,79 @@ def import_MFPAD3D(file, loc):
     """
     valueMFPAD=[]
     for key in file[loc].items():
-        filename=loc+"/"+str(key).split(";")[0].replace("b'","").replace("('","").replace("'","")
-        if "mfpad_mathematica" in filename.lower():
-            valueMFPAD=(file[filename].values()) # it is a list!
+        if "mfpad_mathematica" in key[0]:
+            valueMFPAD=(file[loc+key[0]].values()) # it is a list!
         else:
             continue
     #has to be transposed to match the sum
     return np.array(valueMFPAD.T)
+
+def import_PECD3D(file, loc, a, full=False, run_MFPAD=0, run_cos=0):
+    """
+    """
+    valuePECD=[];valuePECD3D=[]; #fundamental
+    valuectheta=[];valuectheta_err=[]; #fundamental
+    xy_phicos_axisMFPAD=[];x_ctheta_axis=[];x_ctheta_axis_cred=[]; #just one
+    for key in file[loc].items():
+        if "_en" in key[0]:
+            valuePECD3D=(file[loc+key[0]].values()) # it is a list!
+        elif "redPHI_"+str(a) in key[0]:
+            temp=np.array(file[loc+key[0]].to_numpy())
+            valuePECD=file[loc+key[0]].values() # it is a list!
+            if run_MFPAD == 0.:
+                xy_phicos_axisMFPAD=(temp[1], temp[2]) # phi cos(theta) from 2D
+                run_MFPAD=1. #has to run just ones
+        elif "cos(theta)_e[0]_" in key[0]:
+            temp=np.array(file[loc+key[0]].to_numpy())
+            valuectheta=file[loc+key[0]].values() # it is a list!
+            valuectheta_err=file[loc+key[0]].errors() # it is a list!
+            if run_cos == 0.:
+                x_ctheta_axis=temp[1]
+                x_ctheta_axis_cred=np.array((x_ctheta_axis[1:] + x_ctheta_axis[:-1])/2) #! reduced of 1 dimension
+                run_cos=1.
+        else:
+            continue
+    if full:
+        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
+    else:
+        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err)
+
+def import_PECD3D_cos(file, loc, full=False, run_MFPAD=0, run_cos=0):
+    """
+    """
+    valuePECD=[];valuePECD3D=[]; #fundamental
+    valuectheta=[];valuectheta_err=[]; #fundamental
+    valuectheta_pol=[];valuectheta_pol_err=[]; #fundamental
+    xy_phicos_axisMFPAD=[];x_ctheta_axis=[];x_ctheta_axis_cred=[]; #just one
+    for key in file[loc].items():
+        if "_en" in key[0]:
+            valuePECD3D=(file[loc+key[0]].values()) # it is a list!
+        elif "PECD_LF_red" in key[0]:
+            temp=np.array(file[loc+key[0]].to_numpy())
+            valuePECD=file[loc+key[0]].values() # it is a list!
+            if run_MFPAD == 0.:
+                xy_phicos_axisMFPAD=(temp[1], temp[2]) # phi cos(theta) from 2D
+                run_MFPAD=1. #has to run just ones
+        elif "cos(theta)_e[0]_pol_red" in key[0]:
+            temp=np.array(file[loc+key[0]].to_numpy())
+            valuectheta_pol=file[loc+key[0]].values() # it is a list!
+            valuectheta_pol_err=file[loc+key[0]].errors() # it is a list!
+        # elif "cos(theta)_e[0]_redphi" in filename.lower():
+        elif "cos(theta)_e[0];" in key[0]:
+        # elif "cos(theta)_e[0]_prop" in key[0]:
+            temp=np.array(file[loc+key[0]].to_numpy())
+            valuectheta=file[loc+key[0]].values() # it is a list!
+            valuectheta_err=file[loc+key[0]].errors() # it is a list!
+            if run_cos == 0.:
+                x_ctheta_axis=temp[1]
+                x_ctheta_axis_cred=np.array((x_ctheta_axis[1:] + x_ctheta_axis[:-1])/2) #! reduced of 1 dimension
+                run_cos=1.
+        else:
+            continue
+    if full:
+        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err), np.array(valuectheta_pol), np.array(valuectheta_pol_err), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
+    else:
+        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err), np.array(valuectheta_pol), np.array(valuectheta_pol_err)
 
 def mag(vector):
     """
@@ -241,7 +359,7 @@ def normalise_matrix(a,normtype=2):
     Typee 2 is a scaling on the integral of the matrix.
     """
     new_matrix=[]
-    if a.shape[1]==72:
+    if len(np.array(a).shape) == 3:
         if normtype==0:
             for el in a:
                 new_matrix.append(el/np.sum(el,axis=1)[:, np.newaxis])
@@ -267,6 +385,16 @@ def normalise_matrix(a,normtype=2):
             print("Failed to normalise!")
             return 0
     return np.array(new_matrix)
+
+
+def normalise_with_err(a,err):
+    """
+    Very simple: if I normalize using the sum the standard error SE has to be divided by the same quantity
+    https://faraday.physics.utoronto.ca/PVB/Harrison/ErrorAnalysis/Propagation.html
+    """
+    new_matrix = a / np.sum(a)
+    new_err = err / np.sum(a)
+    return np.array(new_matrix), np.array(new_err)
 
 def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
     """
@@ -321,7 +449,7 @@ def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
         fig.add_trace(go.Contour(z=z, x=xgo, y=ygo, line_smoothing=0.75, colorscale=cmap_temp_go))
     fig.update_layout(
     title={
-        'text': "b1 map"+ch_en[-2],'y':0.98,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+        'text': "b1 map "+ch_en[-2],'y':0.98,'x':0.5,'xanchor': 'center','yanchor': 'top'},
     xaxis_title='phi_photon [DEG]',
     yaxis_title='cos(theta) [adm]',
     # legend_title="Legend Title",
@@ -346,21 +474,39 @@ def plotgo_multiple(param_matrix, xgo, ygo, name, limits=[], tweak=False):
     fig = go.Figure()
     fig = make_subplots(rows=6, cols=1, shared_xaxes=True, vertical_spacing=0.015)
 
-    for i in range(6):
-        if tweak:
-            if i==1 or i==3:
-                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
+    if len(limits)>0:
+        for i in range(6):
+            if tweak:
+                if i==1 or i==3:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
+                    colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[0][0], end=limits[0][1], size=limits[0][2])), i+1, 1)
+                else:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
+                    colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[1][0], end=limits[1][1], size=limits[1][2])), i+1, 1)
+            else:
+                if i==1 or i==3 or i==5:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
                 colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[0][0], end=limits[0][1], size=limits[0][2])), i+1, 1)
-            else:
-                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
+                else:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
                 colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[1][0], end=limits[1][1], size=limits[1][2])), i+1, 1)
-        else:
-            if i==1 or i==3 or i==5:
-                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
-            colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[0][0], end=limits[0][1], size=limits[0][2])), i+1, 1)
+    else:
+        for i in range(6):
+            if tweak:
+                if i==1 or i==3:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
+                    colorbar=dict(len=0.15, y=0.92-i*0.17)), i+1, 1)
+                else:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
+                    colorbar=dict(len=0.15, y=0.92-i*0.17)), i+1, 1)
             else:
-                fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0, colorscale=cmap_temp_go,
-            colorbar=dict(len=0.15, y=0.92-i*0.17), contours=dict(start=limits[1][0], end=limits[1][1], size=limits[1][2])), i+1, 1)
+                if i==1 or i==3 or i==5:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
+                colorbar=dict(len=0.15, y=0.92-i*0.17)), i+1, 1)
+                else:
+                    fig.add_trace(go.Contour(z=param_matrix[:,i,0], x=xgo, y=ygo, line_smoothing=0.5, colorscale=cmap_temp_go,
+                colorbar=dict(len=0.15, y=0.92-i*0.17)), i+1, 1)
+
     fig.update_layout(
         title={'text': "b1-6 parameters maps "+ch_en[-2],'y':0.99,'x':0.5,'xanchor': 'center','yanchor': 'top'},
         # xaxis_title='phi_photon [DEG]',
@@ -412,79 +558,6 @@ def remap(b,lim1_low,lim1_high,lim2_low=0,lim2_high=0, rounding=False):
             out=np.around(b,3)
     return out
 
-def rot2d_MFPADcv2(MFPAD,cosphi_adj):
-    """
-    """
-    MFPAD_rot=[]
-    sx=MFPAD[0].shape[0] #200
-    sy=MFPAD[0].shape[1] #100
-
-    #REMAPPING ctetha -1+1 to 0 100, and phi from -180+180 to 0 200 in this order (pixel-like)
-    cosphi_pixel = remap(cosphi_adj,-sy,sy,-sx,sx)
-
-    for el, shift in zip(MFPAD,cosphi_pixel):
-        xmap = np.zeros((el.shape[0], el.shape[1]), np.float32)
-        ymap = np.zeros((el.shape[0], el.shape[1]), np.float32)
-
-        for y in range(el.shape[0]):
-            for x in range(el.shape[1]):
-                xnew=x+shift[0] #NOTE x is the 100 axis -> cos(theta)
-                if xnew>=el.shape[1]:
-                    xmap[y,x] = xnew-el.shape[1]
-                elif xnew<0.:
-                    xmap[y,x] = el.shape[1]-x
-                else:
-                    xmap[y,x] = xnew
-
-                ynew=y+shift[1]
-                if ynew>=el.shape[0]:
-                    ymap[y,x] = ynew-el.shape[0]
-                elif ynew<0.:
-                    ymap[y,x] = el.shape[0]-y
-                else:
-                    ymap[y,x] = ynew
-
-        MFPAD_rot.append(cv2.remap(el, xmap, ymap, cv2.INTER_LINEAR))
-
-    return  np.array(MFPAD_rot).reshape(72,200,100)
-
-
-def rot2d_MFPAD(MFPAD,ctheta,phi,cosphi_adj,phiMM,cosMM,method="linear"):
-    """
-    It computes a clockwise rotation in spherical coordinates of the MFPAD. It interpolated the roated MFPAD on a linear phiMM cosMM grid.
-    INPUT: theta [DEG] (20000,), phi[DEG] (20000,), cosphi_adj = ([adm],[DEG]) (72,2)
-    OUTPUT: MFPAD, rotated cos(theta) [adm] and phi [DEG]
-    NOTE: bondaries conditions for theta and phi
-    """
-    MFPAD_rot=[];ctheta_rot=[];phi_rot=[];
-    for angle in cosphi_adj:
-        for cth,ph in zip(ctheta.reshape(-1),phi.reshape(-1)):
-            tempct=cth+angle[0]
-            if tempct<-1.:
-                ctheta_rot.append(tempct+2.)
-            elif tempct>1.:
-                ctheta_rot.append(tempct-2.)
-            else:
-                ctheta_rot.append(tempct)
-
-            tempp=ph+angle[1]
-            if tempp<-180.:
-                phi_rot.append(tempp+360.)
-            elif tempp>180.:
-                phi_rot.append(tempp-360.)
-            else:
-                phi_rot.append(tempp)
-
-    # ctheta_rot=np.cos(np.array(theta_rot)*np.pi/180.).reshape(72,200,100)
-    ctheta_rot=np.array(ctheta_rot).reshape(72,200,100)
-    phi_rot=np.array(phi_rot).reshape(72,200,100)
-
-    for counter,el in enumerate(MFPAD):
-        MFPAD_temp=griddata(list(zip(phi_rot[counter].reshape(-1),ctheta_rot[counter].reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
-        MFPAD_rot.append(np.nan_to_num(MFPAD_temp))
-        # MFPAD_rot.append(MFPAD_temp)
-
-    return np.array(MFPAD_rot).reshape(72,200,100),ctheta_rot,phi_rot
 def rot3d(alpha,beta,gamma):
     """
     It computes the intrinsic rotation according to the convention z,x',y''.
