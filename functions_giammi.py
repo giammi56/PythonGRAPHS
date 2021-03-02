@@ -32,6 +32,42 @@ def avg_func(cosphi):
 
     return np.around(np.array(list(itertools.product(col1,col2))),3)
 
+def bin_ndarray(ndarray, new_shape, operation='mean'):
+    """
+    Bins an ndarray in all axes based on the target shape, by summing or
+        averaging.
+
+    Number of output dimensions must match number of input dimensions and
+        new axes must divide old ones.
+
+    Example
+    -------
+    >>> m = np.arange(0,100,1).reshape((10,10))
+    >>> n = bin_ndarray(m, new_shape=(5,5), operation='sum')
+    >>> print(n)
+
+    [[ 22  30  38  46  54]
+     [102 110 118 126 134]
+     [182 190 198 206 214]
+     [262 270 278 286 294]
+     [342 350 358 366 374]]
+
+    """
+    operation = operation.lower()
+    if not operation in ['sum', 'mean']:
+        raise ValueError("Operation not supported.")
+    if ndarray.ndim != len(new_shape):
+        raise ValueError("Shape mismatch: {} -> {}".format(ndarray.shape,
+                                                           new_shape))
+    compression_pairs = [(d, c//d) for d,c in zip(new_shape,
+                                                  ndarray.shape)]
+    flattened = [l for p in compression_pairs for l in p]
+    ndarray = ndarray.reshape(flattened)
+    for i in range(len(new_shape)):
+        op = getattr(ndarray, operation)
+        ndarray = op(-1*(i+1))
+    return ndarray
+
 def clippedcolorbar(CS, **kwargs):
     """
     use vmin and vmax in contour or and use there the keyword extend="both".
@@ -233,8 +269,8 @@ def import_MFPAD3D(file, loc):
     """
     valueMFPAD=[]
     for key in file[loc].items():
-        if "mfpad_mathematica" in key[0]:
-            valueMFPAD=(file[loc+key[0]].values()) # it is a list!
+        if "MFPAD_Mathematica" in key[0]:
+            valueMFPAD=np.array(file[loc+key[0]].values()) # it is a list!
         else:
             continue
     #has to be transposed to match the sum
@@ -326,37 +362,12 @@ def matplotlib_to_plotly(cmap, pl_entries):
 
     return pl_colorscale
 
-def makeamesh (x,y,z,d):
-    points2d_trace=go.Scatter(x=x, y=y, mode='markers', marker_color='red', marker_size=6)
-    point_trace=go.Scatter(x=x, y=y,
-                         mode='markers',
-                         name='points',
-                         marker_color='red',
-                         marker_size=6)
-    pts2d=np.array([x,y]).T
-    tri=Delaunay(pts2d)
-    delaunay_tri = tr.triangulation_edges(pts2d, tri.simplices, linewidth=1)
-
-    i, j, k = tri.simplices.T
-    my_mesh3d = go.Mesh3d(
-                        x = x,
-                        y = y,
-                        z = z,
-                        i=i, j=j, k=k,
-                        colorscale='deep_r',
-                        colorbar_thickness=25,
-                        intensity=d,
-                        flatshading=True)
-
-    points3d=np.array([x,y,z]).T
-    delaun_tri3d=tr.triangulation_edges(points3d, tri.simplices)
-    return delaunay_tri, point_trace, my_mesh3d, delaun_tri3d
-
-def normalise_matrix(a,normtype=2):
+def normalise_matrix(a,normtype=2,nancorr=False):
     """
     It normalises a [n,m] matrix.
-    Type 0 and 1 are normalized along lines.
+    Type 0 and 1 are normalized along rows.
     Typee 2 is a scaling on the integral of the matrix.
+    nancorr: it substitutes 0 to NaN
     """
     new_matrix=[]
     if len(np.array(a).shape) == 3:
@@ -384,17 +395,53 @@ def normalise_matrix(a,normtype=2):
         else:
             print("Failed to normalise!")
             return 0
-    return np.array(new_matrix)
+    if nancorr:
+        return np.array(np.nan_to_num(new_matrix))
+    else:
+        return np.array(new_matrix)
 
-
-def normalise_with_err(a,err):
+def normalise_with_err(a,err,normtype=2,nancorr=False):
     """
     Very simple: if I normalize using the sum the standard error SE has to be divided by the same quantity
     https://faraday.physics.utoronto.ca/PVB/Harrison/ErrorAnalysis/Propagation.html
     """
-    new_matrix = a / np.sum(a)
-    new_err = err / np.sum(a)
-    return np.array(new_matrix), np.array(new_err)
+    new_matrix=[]
+    new_err=[]
+    if len(np.array(a).shape) == 3:
+        if normtype==0:
+            for el,elr in zip(a,err):
+                new_matrix.append(el/np.sum(el,axis=1)[:, np.newaxis])
+                new_err.append(elr/np.sum(el,axis=1)[:, np.newaxis])
+        elif normtype==1:
+            for el,elr in zip(a,err):
+                new_matrix.append(el/np.linalg.norm(el,axis=1)[:, np.newaxis])
+                new_err.append(elr/np.linalg.norm(el,axis=1)[:, np.newaxis])
+        elif normtype==2:
+            for el,elr in zip(a,err):
+                new_matrix.append(el/np.sum(el))
+                new_err.append(elr/np.sum(el))
+        else:
+            print("Failed to normalise!")
+        return 0
+    else:
+        if normtype==0:
+            row_sums = np.sum(a,axis=1)
+            new_matrix = a / row_sums[:, np.newaxis]
+            new_err = err / row_sums[:, np.newaxis]
+        elif normtype==1:
+            row_sums = np.linalg.norm(a,axis=1)
+            new_matrix = a / row_sums[:, np.newaxis]
+            new_err = err / row_sums[:, np.newaxis]
+        elif normtype==2:
+            new_matrix = a / np.sum(a)
+            new_err = err / np.sum(a)
+        else:
+            print("Failed to normalise!")
+            return 0
+    if nancorr:
+        return np.array(np.nan_to_num(new_matrix)),np.array(np.nan_to_num(new_err))
+    else:
+        return np.array(new_matrix), np.array(new_err)
 
 def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
     """
@@ -467,6 +514,7 @@ def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
 def plotgo_multiple(param_matrix, xgo, ygo, name, limits=[], tweak=False):
     """
     limits=[min,max,size]
+    try pto substitute colorscale with contours_coloring for smooth graphs: more similar to imshow
     """
     ch_en=str(name).split("_")
     cmap_temp, cmap_temp_go, Magma_r, Seismic_r = customcmaps()
@@ -628,8 +676,12 @@ def smoothgauss(MFPAD, sigmax, sigmay):
     """
     # NOTE: the right order is y,x (from stackoverflow)
     sigma = [sigmay,sigmax]
-    Y = sp.ndimage.filters.gaussian_filter(MFPAD, sigma, mode="constant")
-    return Y
+    if len(MFPAD.shape)==1:
+        Y = sp.ndimage.filters.gaussian_filter(MFPAD.reshape(12,6), sigma, mode="constant")
+        return Y.reshape(-1)
+    else:
+        Y = sp.ndimage.filters.gaussian_filter(MFPAD, sigma, mode="constant")
+        return Y
 
 def shift_func(a, flag=0.):
     """
