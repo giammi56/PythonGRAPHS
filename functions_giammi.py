@@ -187,19 +187,21 @@ def customcmaps():
 
     return(cmap_temp, cmap_temp_go, Magma_r, Seismic_r)
 
-def error_calc(a,b,aerr,berr,error_type="PECD"):
+def error_calc(a,b,aerr=1,berr=1,error_type="PECD_S"):
     """
     Performs the propagation of error for several operations. No covarience is taken into account.
-    keyword: PECD, SUM, DIFF, PROD, DIV.
-    NOTE: in PECD xsum is the same for sum and diff, therefore the coefficient is 1.
+    keyword: PECD, PECD_S, SUM, DIFF, PROD, DIV.
+    NOTE: use the error NOT nomalized; if the asymmetry in counts is low such as a~=b~=Ntot/2, than PECD can be simplified in PECD_S
+    William R. Leo - Techniques for Nuclear and Particle Physics Experiments_ A How-to Approach-Springer (1994)
     https://faraday.physics.utoronto.ca/PVB/Harrison/ErrorAnalysis/Propagation.html
     """
     if error_type == "PECD":
         xsum=np.add(a,b)
-        # xdiff=np.subtract(a,b)
+        xdiff=np.subtract(a,b)
         sumerr=np.sqrt(aerr**2+berr**2)
-        return np.sqrt((sumerr/xsum)**2+(sumerr/xsum)**2)
-        # return np.divide(xsum,xdiff)*np.sqrt((sumerr/xsum)**2+(sumerr/xdiff)**2)
+        return np.divide(xsum,np.fabs(xdiff))*np.sqrt((sumerr/xsum)**2+(sumerr/xdiff)**2)
+    elif error_type == "PECD_S":
+        return (np.add(a,b)**-0.5)
     elif error_type == "SUM" or error_type == "DIFF":
         return np.sqrt(aerr**2+berr**2)
     elif error_type == "PROD":
@@ -362,47 +364,15 @@ def matplotlib_to_plotly(cmap, pl_entries):
 
     return pl_colorscale
 
-def normalise_matrix(a,normtype=2,nancorr=False):
+def normalise_with_err(a,err=1,normtype=2,nancorr=False):
     """
     It normalises a [n,m] matrix.
-    Type 0 and 1 are normalized along rows.
-    Typee 2 is a scaling on the integral of the matrix.
-    nancorr: it substitutes 0 to NaN
-    """
-    new_matrix=[]
-    if len(np.array(a).shape) == 3:
-        if normtype==0:
-            for el in a:
-                new_matrix.append(el/np.sum(el,axis=1)[:, np.newaxis])
-        elif normtype==1:
-            for el in a:
-                new_matrix.append(el/np.linalg.norm(el,axis=1)[:, np.newaxis])
-        elif normtype==2:
-            for el in a:
-                new_matrix.append(el/np.sum(el))
-        else:
-            print("Failed to normalise!")
-        return 0
-    else:
-        if normtype==0:
-            row_sums = np.sum(a,axis=1)
-            new_matrix = a / row_sums[:, np.newaxis]
-        elif normtype==1:
-            row_sums = np.linalg.norm(a,axis=1)
-            new_matrix = a / row_sums[:, np.newaxis]
-        elif normtype==2:
-            new_matrix = a / np.sum(a)
-        else:
-            print("Failed to normalise!")
-            return 0
-    if nancorr:
-        return np.array(np.nan_to_num(new_matrix))
-    else:
-        return np.array(new_matrix)
+    normtpe 0 and 1 are normalized along rows.
+    normtpe 2 is a scaling on the integral of the matrix.
+    nancorr: substitutes 0 with NaN.
 
-def normalise_with_err(a,err,normtype=2,nancorr=False):
-    """
-    Very simple: if I normalize using the sum the standard error SE has to be divided by the same quantity
+    Very simple: if I normalize using the sum the standard error SE has to be divided by the same quantity.
+    NOTE it is likely that error shouldn´t be normalized in the approximation.
     https://faraday.physics.utoronto.ca/PVB/Harrison/ErrorAnalysis/Propagation.html
     """
     new_matrix=[]
@@ -438,10 +408,16 @@ def normalise_with_err(a,err,normtype=2,nancorr=False):
         else:
             print("Failed to normalise!")
             return 0
-    if nancorr:
-        return np.array(np.nan_to_num(new_matrix)),np.array(np.nan_to_num(new_err))
+    if err != 1:
+        if nancorr:
+            return np.array(np.nan_to_num(new_matrix)),np.array(np.nan_to_num(new_err))
+        else:
+            return np.array(new_matrix), np.array(new_err)
     else:
-        return np.array(new_matrix), np.array(new_err)
+        if nancorr:
+            return np.array(np.nan_to_num(new_matrix))
+        else:
+            return np.array(new_matrix)
 
 def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
     """
