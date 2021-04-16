@@ -150,7 +150,6 @@ def create_gocoords(a=1,reduced=False,source=False):
         print("NO cooridnates loaded!")
     return(0)
 
-
 def customcmaps():
     """
     It intriduces the cmap temperature to be consistent with Philipp graphs both for mpl and plotly.
@@ -223,45 +222,33 @@ def getamesh(x,y,z,d):
     I, J, K = tri.T
     return x,y,z,I,J,K
 
-def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
+def import_TH1Dgeneric(file, loc, centre_bins=True):
     """
-    Loads the MFPADs and the cos(theta) from the .root files.
-    NOTE: MFPAD_xy and ctheta_c have originally +1 dimensions compare to the z values.
-    For the sake of iminiut, cos(theta) is centered on the middle of the bins.
+    Loads a generic TH1D graph from a .root file.
     """
-    valueMFPAD=[];valuectheta=[];valuectheta_err=[]; #fundamental
-    cosphi_photon=[]; #important
-    xy_phicos_axisMFPAD=[];x_ctheta_axis=[];x_ctheta_axis_cred=[]; #just one
-    for key in file[loc].items():
-        #on linux and uproot4 concatenation of replace
-        if "MFPAD3D_engate_costheta_" in key[0]:
-            cosphi_photon=cosphi_func(key,cosphi_photon) #this function appends
-            #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
-            temp=np.array(file[loc+key[0]].to_numpy())
-            valueMFPAD.append(file[loc+key[0]].values()) # it is a list!
-            # valueMFPAD.append(temp[0]) # alterative way
-            if run_MFPAD == 0.:
-                #structure for uproot3
-                #xy_phicos_axisMFPAD.append((temp[1][0][0] , temp[1][0][1])) # phi cos(theta) from 2D
-                #structure for uproot4
-                xy_phicos_axisMFPAD.append((temp[1], temp[2])) # phi cos(theta) from 2D
-                run_MFPAD=1. #has to run just ones
-        elif "cos(theta)" in key[0]:
-            #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
-            temp=np.array(file[loc+key[0]].to_numpy())
-            valuectheta.append(file[loc+key[0]].values()) # it is a list!
-            valuectheta_err.append(file[loc+key[0]].errors()) # it is a list!
-            # valuectheta.append(temp[0]) # alterative way
-            if run_cos == 0.:
-                x_ctheta_axis.append(temp[1])
-                x_ctheta_axis_cred.append(np.array((x_ctheta_axis[0][1:] + x_ctheta_axis[0][:-1])/2)) #! reduced of 1 dimension
-                run_cos=1.
-        else:
-            continue
-    if full:
-        return np.array(valueMFPAD), np.array(valuectheta), np.array(valuectheta_err), np.array(cosphi_photon), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
+    temp=np.array(file[loc].to_numpy(),dtype=object)
+    zvalues=temp[0]
+    if centre_bins: #! reduced of 1 dimension
+        xvalues_red=(temp[1][1:] + temp[1][:-1])/2
+        return np.array(xvalues_red), np.array(zvalues)
     else:
-        return np.array(valueMFPAD), np.array(valuectheta), np.array(valuectheta_err)
+        xvalues = temp[1]
+        return np.array(xvalues), np.array(zvalues)
+
+def import_TH2Dgeneric(file, loc, centre_bins=True):
+    """
+    Loads a generic TH2D graph from a .root file.
+    """
+    temp=np.array(file[loc].to_numpy(),dtype=object)
+    zvalues=temp[0]
+    if centre_bins: #! reduced of 1 dimension
+        xvalues_red=(temp[1][1:] + temp[1][:-1])/2
+        yvalues_red=(temp[2][1:] + temp[2][:-1])/2
+        return np.array(xvalues_red), np.array(yvalues_red), np.array(zvalues)
+    else:
+        xvalues = temp[1]
+        yvalues = temp[2]
+        return np.array(xvalues), np.array(yvalues), np.array(zvalues)
 
 def import_MFPAD3D(file, loc):
     """
