@@ -250,23 +250,71 @@ def import_TH2Dgeneric(file, loc, centre_bins=True):
         yvalues = temp[2]
         return np.array(xvalues), np.array(yvalues), np.array(zvalues)
 
+def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
+    """
+    Loads the 72 MFPADs and the cos(theta) from the .root files.
+    NOTE: MFPAD_xy and ctheta_c have originally +1 dimensions compare to the z values.
+    For the sake of iminiut, cos(theta) is centered on the middle of the bins.
+    The deprecation has been implemented to avoid slicing, and doesn´t affect the outpu here.
+    """
+    valueMFPAD=[];valuectheta=[];valuectheta_err=[]; #fundamental
+    cosphi_photon=[]; #important
+    xy_phicos_axisMFPAD=[];x_ctheta_axis=[];x_ctheta_axis_cred=[]; #just one
+    for key in file[loc].items():
+        #on linux and uproot4 concatenation of replace
+        if "MFPAD3D_engate_costheta_" in key[0]:
+            cosphi_photon=cosphi_func(key,cosphi_photon) #this function appends
+            #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
+            temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+            valueMFPAD.append(file[loc+key[0]].values()) # it is a list!
+            # valueMFPAD.append(temp[0]) # alterative way
+            if run_MFPAD == 0.:
+                #structure for uproot3
+                #xy_phicos_axisMFPAD.append((temp[1][0][0] , temp[1][0][1])) # phi cos(theta) from 2D
+                #structure for uproot4
+                xy_phicos_axisMFPAD.append((temp[1], temp[2])) # phi cos(theta) from 2D
+                run_MFPAD=1. #has to run just ones
+        elif "cos(theta)" in key[0]:
+            #temp=np.array(file[filename].numpy()) #just .numpy for uproot3
+            temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+            valuectheta.append(file[loc+key[0]].values()) # it is a list!
+            valuectheta_err.append(file[loc+key[0]].errors()) # it is a list!
+            # valuectheta.append(temp[0]) # alterative way
+            if run_cos == 0.:
+                x_ctheta_axis.append(temp[1])
+                x_ctheta_axis_cred.append(np.array((x_ctheta_axis[0][1:] + x_ctheta_axis[0][:-1])/2)) #! reduced of 1 dimension
+                run_cos=1.
+        else:
+            continue
+    if full:
+        return np.array(valueMFPAD,dtype=float), np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float), \
+            np.array(cosphi_photon), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis,dtype=float), \
+            np.array(x_ctheta_axis_cred,dtype=float)
+    else:
+        return np.array(valueMFPAD,dtype=float), np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float)
+
 def import_MFPAD3D(file, loc):
     """
-    Loads the MFPADs and the cos(theta) from the 3D root file
+    Loads a single MFPAD and the cos(theta) from the 3D root file.
     It excrats cosphi photon as number of MFPAD, phi and cos electron axis
     NOTE: the final shape is (72,18,36), theroefore each of the 72 MPFAD is transposed comapre to the single inputs
+    The deprecation has been implemented to avoid slicing, and doesn´t affect the outpu here.
     """
     valueMFPAD=[]
     for key in file[loc].items():
         if "MFPAD_Mathematica" in key[0]:
-            valueMFPAD=np.array(file[loc+key[0]].values()) # it is a list!
+            valueMFPAD=np.array(file[loc+key[0]].values(),dtype=float) # it is a list!
         else:
             continue
     #has to be transposed to match the sum
-    return np.array(valueMFPAD.T)
+    return np.array(valueMFPAD.T,dtype=float)
 
 def import_PECD3D(file, loc, a, full=False, run_MFPAD=0, run_cos=0):
     """
+    Loads a MFPAD and the cos(theta) from the .root files.
+    NOTE: MFPAD_xy and ctheta_c have originally +1 dimensions compare to the z values.
+    For the sake of iminiut, cos(theta) is centered on the middle of the bins.
+    The deprecation has been implemented to avoid slicing, and doesn´t affect the outpu here.
     """
     valuePECD=[];valuePECD3D=[]; #fundamental
     valuectheta=[];valuectheta_err=[]; #fundamental
@@ -275,13 +323,13 @@ def import_PECD3D(file, loc, a, full=False, run_MFPAD=0, run_cos=0):
         if "_en" in key[0]:
             valuePECD3D=(file[loc+key[0]].values()) # it is a list!
         elif "redPHI_"+str(a) in key[0]:
-            temp=np.array(file[loc+key[0]].to_numpy())
+            temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
             valuePECD=file[loc+key[0]].values() # it is a list!
             if run_MFPAD == 0.:
                 xy_phicos_axisMFPAD=(temp[1], temp[2]) # phi cos(theta) from 2D
                 run_MFPAD=1. #has to run just ones
         elif "cos(theta)_e[0]_" in key[0]:
-            temp=np.array(file[loc+key[0]].to_numpy())
+            temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
             valuectheta=file[loc+key[0]].values() # it is a list!
             valuectheta_err=file[loc+key[0]].errors() # it is a list!
             if run_cos == 0.:
@@ -291,9 +339,12 @@ def import_PECD3D(file, loc, a, full=False, run_MFPAD=0, run_cos=0):
         else:
             continue
     if full:
-        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
+        return np.array(valuePECD,dtype=float), np.array(valuePECD3D,dtype=float), np.array(valuectheta,dtype=float), \
+                np.array(valuectheta_err,dtype=float), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis,dtype=float), \
+                np.array(x_ctheta_axis_cred)
     else:
-        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err)
+        return np.array(valuePECD,dtype=float), np.array(valuePECD3D,dtype=float), np.array(valuectheta,dtype=float), \
+            np.array(valuectheta_err,dtype=float)
 
 def import_PECD3D_cos(file, loc, full=False, run_MFPAD=0, run_cos=0):
     """
@@ -306,19 +357,19 @@ def import_PECD3D_cos(file, loc, full=False, run_MFPAD=0, run_cos=0):
         if "_en" in key[0]:
             valuePECD3D=(file[loc+key[0]].values()) # it is a list!
         elif "PECD_LF_red" in key[0]:
-            temp=np.array(file[loc+key[0]].to_numpy())
+            temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
             valuePECD=file[loc+key[0]].values() # it is a list!
             if run_MFPAD == 0.:
                 xy_phicos_axisMFPAD=(temp[1], temp[2]) # phi cos(theta) from 2D
                 run_MFPAD=1. #has to run just ones
         elif "cos(theta)_e[0]_pol_red" in key[0]:
-            temp=np.array(file[loc+key[0]].to_numpy())
+            temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
             valuectheta_pol=file[loc+key[0]].values() # it is a list!
             valuectheta_pol_err=file[loc+key[0]].errors() # it is a list!
         # elif "cos(theta)_e[0]_redphi" in filename.lower():
         elif "cos(theta)_e[0];" in key[0]:
         # elif "cos(theta)_e[0]_prop" in key[0]:
-            temp=np.array(file[loc+key[0]].to_numpy())
+            temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
             valuectheta=file[loc+key[0]].values() # it is a list!
             valuectheta_err=file[loc+key[0]].errors() # it is a list!
             if run_cos == 0.:
@@ -328,9 +379,12 @@ def import_PECD3D_cos(file, loc, full=False, run_MFPAD=0, run_cos=0):
         else:
             continue
     if full:
-        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err), np.array(valuectheta_pol), np.array(valuectheta_pol_err), np.array(xy_phicos_axisMFPAD), np.array(x_ctheta_axis), np.array(x_ctheta_axis_cred)
+        return np.array(valuePECD,dtype=float), np.array(valuePECD3D,dtype=float), np.array(valuectheta,dtype=float), \
+                np.array(valuectheta_err,dtype=float), np.array(valuectheta_pol,dtype=float), np.array(valuectheta_pol_err,dtype=float), \
+                np.array(xy_phicos_axisMFPAD,dtype=float), np.array(x_ctheta_axis,dtype=float), np.array(x_ctheta_axis_cred,dtype=float)
     else:
-        return np.array(valuePECD), np.array(valuePECD3D), np.array(valuectheta), np.array(valuectheta_err), np.array(valuectheta_pol), np.array(valuectheta_pol_err)
+        return np.array(valuePECD,dtype=float), np.array(valuePECD3D,dtype=float), np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float), \
+            np.array(valuectheta_pol,dtype=float), np.array(valuectheta_pol_err,dtype=float)
 
 def mag(vector):
     """
@@ -364,47 +418,73 @@ def normalise_with_err(a,err=1,normtype=2,nancorr=False):
     """
     new_matrix=[]
     new_err=[]
-    if len(np.array(a).shape) == 3:
-        if normtype==0:
-            for el,elr in zip(a,err):
-                new_matrix.append(el/np.sum(el,axis=1)[:, np.newaxis])
-                new_err.append(elr/np.sum(el,axis=1)[:, np.newaxis])
-        elif normtype==1:
-            for el,elr in zip(a,err):
-                new_matrix.append(el/np.linalg.norm(el,axis=1)[:, np.newaxis])
-                new_err.append(elr/np.linalg.norm(el,axis=1)[:, np.newaxis])
-        elif normtype==2:
-            for el,elr in zip(a,err):
-                new_matrix.append(el/np.sum(el))
-                new_err.append(elr/np.sum(el))
-        else:
-            print("Failed to normalise!")
-        return 0
-    else:
-        if normtype==0:
-            row_sums = np.sum(a,axis=1)
-            new_matrix = a / row_sums[:, np.newaxis]
-            new_err = err / row_sums[:, np.newaxis]
-        elif normtype==1:
-            row_sums = np.linalg.norm(a,axis=1)
-            new_matrix = a / row_sums[:, np.newaxis]
-            new_err = err / row_sums[:, np.newaxis]
-        elif normtype==2:
-            new_matrix = a / np.sum(a)
-            new_err = err / np.sum(a)
-        else:
-            print("Failed to normalise!")
-            return 0
     if err != 1:
-        if nancorr:
-            return np.array(np.nan_to_num(new_matrix)),np.array(np.nan_to_num(new_err))
+        if len(np.array(a).shape) == 3:
+            if normtype==0:
+                for el in a:
+                    new_matrix.append(el/np.sum(el,axis=1)[:, np.newaxis])
+            elif normtype==1:
+                for el in a:
+                    new_matrix.append(el/np.linalg.norm(el,axis=1)[:, np.newaxis])
+            elif normtype==2:
+                for el in a:
+                    new_matrix.append(el/np.sum(el))
+            else:
+                print("Failed to normalise!")
+            return 0
         else:
-            return np.array(new_matrix), np.array(new_err)
-    else:
+            if normtype==0:
+               row_sums = np.sum(a,axis=1)
+               new_matrix = a / row_sums[:, np.newaxis]
+            elif normtype==1:
+                row_sums = np.linalg.norm(a,axis=1)
+                new_matrix = a / row_sums[:, np.newaxis]
+            elif normtype==2:
+                new_matrix = a / np.sum(a)
+            else:
+                print("Failed to normalise!")
+                return 0
         if nancorr:
             return np.array(np.nan_to_num(new_matrix))
         else:
             return np.array(new_matrix)
+
+    else:
+        if len(np.array(a).shape) == 3:
+            if normtype==0:
+                for el,elr in zip(a,err):
+                    new_matrix.append(el/np.sum(el,axis=1)[:, np.newaxis])
+                    new_err.append(elr/np.sum(el,axis=1)[:, np.newaxis])
+            elif normtype==1:
+                for el,elr in zip(a,err):
+                    new_matrix.append(el/np.linalg.norm(el,axis=1)[:, np.newaxis])
+                    new_err.append(elr/np.linalg.norm(el,axis=1)[:, np.newaxis])
+            elif normtype==2:
+                for el,elr in zip(a,err):
+                    new_matrix.append(el/np.sum(el))
+                    new_err.append(elr/np.sum(el))
+            else:
+                print("Failed to normalise!")
+            return 0
+        else:
+            if normtype==0:
+                row_sums = np.sum(a,axis=1)
+                new_matrix = a / row_sums[:, np.newaxis]
+                new_err = err / row_sums[:, np.newaxis]
+            elif normtype==1:
+                row_sums = np.linalg.norm(a,axis=1)
+                new_matrix = a / row_sums[:, np.newaxis]
+                new_err = err / row_sums[:, np.newaxis]
+            elif normtype==2:
+                new_matrix = a / np.sum(a)
+                new_err = err / np.sum(a)
+            else:
+                print("Failed to normalise!")
+                return 0
+        if nancorr:
+            return np.array(np.nan_to_num(new_matrix)),np.array(np.nan_to_num(new_err))
+        else:
+            return np.array(new_matrix), np.array(new_err)
 
 def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
     """
