@@ -1,22 +1,32 @@
 import itertools
 from itertools import count
-import numpy as np
+
 import math
+
+import numpy as np
 from numpy.core.defchararray import array
+
 import pandas as pd
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors
 from matplotlib import cm
+
 import triangulation as tr
+
 import scipy as sp
 import scipy.ndimage
 from scipy.spatial import Delaunay
 from scipy.interpolate import griddata
+from scipy.interpolate import interp2d
+from scipy.ndimage.filters import gaussian_filter
+
 from pyntcloud import PyntCloud, structures
 import plotly
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
 import uproot
 import uproot_methods
 
@@ -190,7 +200,7 @@ def error_calc(a,b,aerr=1,berr=1,error_type="PECD_S"):
     """
     Performs the propagation of error for several operations. No covarience is taken into account.
     keyword: PECD, PECD_S, SUM, DIFF, PROD, DIV.
-    NOTE: use the error NOT nomalized; if the asymmetry in counts is low such as a~=b~=Ntot/2, than PECD can be simplified in PECD_S
+    NOTE: use all NON nomalized quantities; if the asymmetry in counts is low such as a~=b~=Ntot/2, than PECD can be simplified in PECD_S
     William R. Leo - Techniques for Nuclear and Particle Physics Experiments_ A How-to Approach-Springer (1994)
     https://faraday.physics.utoronto.ca/PVB/Harrison/ErrorAnalysis/Propagation.html
     """
@@ -405,7 +415,7 @@ def matplotlib_to_plotly(cmap, pl_entries):
 
     return pl_colorscale
 
-def normalise_with_err(a,err=1,normtype=2,nancorr=False):
+def normalise_with_err(a,err=0,normtype=2,nancorr=False):
     """
     It normalises a [n,m] matrix.
     normtpe 0 and 1 are normalized along rows.
@@ -418,7 +428,7 @@ def normalise_with_err(a,err=1,normtype=2,nancorr=False):
     """
     new_matrix=[]
     new_err=[]
-    if err != 1:
+    if type(err) == int:
         if len(np.array(a).shape) == 3:
             if normtype==0:
                 for el in a:
@@ -519,6 +529,28 @@ def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
     newax.set_ylabel('cos(theta)_photon')
 
     return (newax)
+
+def plot_interpolation (x, y, z, ax, cmap="viridis", xstep=1, ystep=.001, cont=True, kind="cubic", n=15):
+    """
+    Interpolates MFPAD and b1 with the unique x and y. Draws with pcolormesh with contour.
+    It uses the size match x (m,) y (n,) z (n,m) e.g. for b1 (12,) (6,) (6,12), but lieanr z can be provided.
+    """
+    # maybe a more elegant way would be using mgrid. NOTE the use of cosphi_adj_cos!
+    # grid_x, grid_y = np.mgrid[-0.835:0.835:100j, -165:165:200j]
+    # grid_z2 = griddata(cosphi_adj_cos, param_matrix_cos[:,0,0], (grid_x, grid_y), method='cubic')
+
+    if len(z.shape)<2:
+        z=z.reshape(len(y),-1)
+    f = interp2d(x,y, z, kind=kind)
+    xnew = np.arange(x.min(), x.max(), xstep)
+    ynew = np.arange(y.min(), y.max(), ystep)
+    Zn = f(xnew,ynew)
+    Xn, Yn = np.meshgrid(xnew, ynew)
+    cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap)
+    if cont:
+        ax.contour(Xn, Yn, gaussian_filter(Zn, 4.), n, colors='k', alpha=0.15)
+    return(cs,ax)
+    # return(Xn,Yn)
 
 def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
     """
