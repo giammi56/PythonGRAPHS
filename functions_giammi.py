@@ -140,6 +140,7 @@ def create_gocoords(a=1,reduced=False,source=False):
         cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
         phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
 
+
     #NOTE: x is always the 12 members array (phi)
     #      y is always the 6 members array (cos(theta))
     if a==0:
@@ -496,7 +497,7 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
         else:
             return np.array(new_matrix), np.array(new_err)
 
-def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
+def overlaygraph(fig, title="",original=False, wspace=0.08, hspace=0.08):
     """
     Overlays the typical graphs with photon coordiantes x=phi, y=cos(theta).
     Set the space in between the subplots via fig.
@@ -524,7 +525,11 @@ def overlaygraph(fig, title="",wspace=0.08, hspace=0.08):
 
     # newax.set_yticks(np.arange(0,180.1,20, dtype=int))
     # newax.set_ylim([-181,180])
-    newax.set_ylim([1,-1])
+    if original:
+        newax.set_ylim([-1,1])
+    else:
+        newax.set_ylim([1,-1])
+
     # newax.set_ylabel('theta_photon')
     newax.set_ylabel('cos(theta)_photon')
 
@@ -541,7 +546,7 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", xstep=1, ystep=.001, cont=T
 
     if len(z.shape)<2:
         z=z.reshape(len(y),-1)
-    f = interp2d(x,y, z, kind=kind)
+    f = interp2d(x,y,z, kind=kind)
     xnew = np.arange(x.min(), x.max(), xstep)
     ynew = np.arange(y.min(), y.max(), ystep)
     Zn = f(xnew,ynew)
@@ -681,17 +686,27 @@ def remap(b,lim1_low,lim1_high,lim2_low=0,lim2_high=0, rounding=False):
             out=np.around(b,3)
     return out
 
-def rot3d(alpha,beta,gamma):
+def rot3d(alpha,beta,gamma,convention=1):
     """
-    It computes the intrinsic rotation according to the convention z,x',y''.
-    The angles are α around -z, β around y, and γ around x.
-    It returns 3X3 Rtot=Rz(α)Ry(β)Rx(γ) matrix
+    It computes the intrinsic rotation according to the convention z,x',z''.
+    The angles are β around z, α around x, and γ around y. β=θ and α=φ in spherical coordinates!
+    convention 1: passive rotation yaw pitch roll (around -z) convention: 3X3 Rtot=Rz(α)Ry(β)Rx(γ) matrix
+    convention 2: active rotation y1 x2 z3 convention: 3X3 Rtot=Rz(α)Rx(β)Rz(γ) matrix
     ref: https://de.wikipedia.org/wiki/Eulersche_Winkel
     """
-    rot_matrix = np.array([[np.cos(beta)*np.cos(alpha), np.sin(gamma)*np.sin(beta)*np.cos(alpha)-np.cos(gamma)*np.sin(alpha), np.cos(gamma)*np.sin(beta)*np.cos(alpha)+np.sin(gamma)*np.sin(alpha)],
-                           [np.cos(beta)*np.sin(alpha), np.sin(gamma)*np.sin(beta)*np.sin(alpha)+np.cos(gamma)*np.cos(alpha), np.cos(gamma)*np.sin(beta)*np.sin(alpha)-np.sin(gamma)*np.cos(alpha)],
-                           [-np.sin(beta)             , np.sin(gamma)*np.cos(beta)                                          , np.cos(gamma)*np.cos(beta)                                         ]])
-    return rot_matrix
+    #yaw pitch roll convention
+    if convention==1:
+        rot = np.array([[np.cos(beta)*np.cos(alpha), np.sin(gamma)*np.sin(beta)*np.cos(alpha)-np.cos(gamma)*np.sin(alpha), np.cos(gamma)*np.sin(beta)*np.cos(alpha)+np.sin(gamma)*np.sin(alpha)],
+                        [np.cos(beta)*np.sin(alpha), np.sin(gamma)*np.sin(beta)*np.sin(alpha)+np.cos(gamma)*np.cos(alpha), np.cos(gamma)*np.sin(beta)*np.sin(alpha)-np.sin(gamma)*np.cos(alpha)],
+                       [-np.sin(beta)              , np.sin(gamma)*np.cos(beta)                                          , np.cos(gamma)*np.cos(beta)                                         ]])
+
+    #y1x2z3 convention
+    elif convention==2:
+        rot = np.array([[np.cos(alpha)*np.cos(gamma)-np.sin(alpha)*np.cos(beta)*np.sin(gamma), -np.cos(alpha)*np.sin(gamma)-np.sin(alpha)*np.cos(beta)*np.cos(gamma),  np.sin(alpha)*np.sin(beta)],
+                        [np.sin(alpha)*np.cos(gamma)+np.cos(alpha)*np.cos(beta)*np.sin(gamma), -np.sin(alpha)*np.sin(gamma)+np.cos(alpha)*np.cos(beta)*np.cos(gamma), -np.cos(alpha)*np.sin(beta)],
+                        [np.sin(beta)*np.sin(gamma)                                           , np.sin(beta)*np.cos(gamma)                                          ,  np.cos(beta)              ]])
+
+    return rot
 
 def rot3d_photo(theta,phi):
     """
@@ -706,14 +721,14 @@ def rot3d_photo(theta,phi):
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
 
-def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
+def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", convention=1):
     """
     Converts the MFPAD into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
-    rotates them according to the realtive cosphi_adj_cart_lf,
-    converts them back into spherical coordinates (physics convention: theta polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
+    rotates them according to the realtive cosphi_adj which contains the photon coordiantes cos(θ) φ ,
+    converts them back into spherical coordinates (physics convention:  polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
     makes an interpolation of the rotated MFPAD on the new cartesian axes.
     INPUT: 72 **SORTED** MFPAD, theta and phi with shape (20000,), cosphi_adj_XXX **SORTED ACCORDINGLY TO INPUT** for rotations, phiMM and cosMM linear meshgrid (100,200)
-    INPUT_optional: interpolation maethod. default = linear
+    INPUT_optional: interpolation maethod. default = linear, rotation convention: 1=rotation yaw-pitch-roll, 2=y1x2z3. default convention=1.
     OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force byte phiMM and cosMM
     """
     r=[];ctheta=[];phi=[]
@@ -727,9 +742,15 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
 
         xyzm = np.stack((x, y, z))
 
-        # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0), xyzm)
-        #inversion of beta and alpha:JUST A TEST
-        x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0), xyzm)
+        #1. α=θ β=φ
+        # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
+        #1a. α=θ+pi/2 β=φ
+        # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
+        #2. α=φ β=θ
+        x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=convention), xyzm)
+        #2a. α=φ, β=θ+pi/2
+        # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0])+np.pi*0.5,0,convention=convention), xyzm)
+
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
 
         #cos domain  0 < θ ≤ π
@@ -738,7 +759,9 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear"):
         #atan2 domain  −π < θ ≤ π
         phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
         phi.append(phi_temp)
-        #NOTE phiMM.shape=cosMM.shape=(100,200)
+        #NOTE phiMM and cosMM should cover the way el is originally created:
+        # therefore (1,-180)->(0.9, -180) ..->.. (-0.9, 180)->(-1, 180)
+        # phiMM.shape=cosMM.shape=(100,200)
         r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
         r.append(np.nan_to_num(r_temp))
 
