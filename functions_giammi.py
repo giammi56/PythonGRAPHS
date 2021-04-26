@@ -442,7 +442,7 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
                     new_matrix.append(el/np.sum(el))
             else:
                 print("Failed to normalise!")
-            return 0
+                return 0
         else:
             if normtype==0:
                row_sums = np.sum(a,axis=1)
@@ -734,6 +734,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
     r=[];ctheta=[];phi=[]
     cosx_LF_temp=[];
     #in molecular frame
+
     for el,angle in zip(MFPAD,cosphi_adj):
         el = el.reshape(-1)
         x = el * np.sin(theta_rad) * np.cos(phi_rad)
@@ -742,14 +743,17 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
 
         xyzm = np.stack((x, y, z))
 
-        #1. α=θ β=φ
-        # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
-        #1a. α=θ+pi/2 β=φ
-        # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
-        #2. α=φ β=θ
-        x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=convention), xyzm)
-        #2a. α=φ, β=θ+pi/2
-        # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0])+np.pi*0.5,0,convention=convention), xyzm)
+        if len(angle) == 2:
+            #1. α=θ β=φ
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
+            #1a. α=θ+pi/2 β=φ
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
+            #2. α=φ β=θ
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=convention), xyzm)
+            #2a. α=φ, β=θ+pi/2
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0])+np.pi*0.5,0,convention=convention), xyzm)
+        else:
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,angle[1]*np.pi/180.,angle[2]*np.pi/180.,convention=convention), xyzm)
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
 
@@ -766,6 +770,36 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
         r.append(np.nan_to_num(r_temp))
 
     return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
+
+def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear",convention=1):
+    """
+    As the parent function, but for just one MFPAD
+    """
+    r=[];
+    #in molecular frame
+    el = MFPAD.reshape(-1)
+    x = el * np.sin(theta_rad) * np.cos(phi_rad)
+    y = el * np.sin(theta_rad) * np.sin(phi_rad)
+    z = el * np.cos(theta_rad)
+    xyzm = np.stack((x, y, z))
+    nsize=len(cosphi_adj)
+
+    for angle in cosphi_adj:
+        x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,angle[1]*np.pi/180.,angle[2]*np.pi/180.,convention=convention), xyzm)
+
+        mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
+        #cos domain  0 < θ ≤ π
+        ctheta_temp=(z_LF/mag_LF)
+        #atan2 domain  −π < θ ≤ π
+        phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
+
+        #NOTE phiMM and cosMM should cover the way el is originally created:
+        # therefore (1,-180)->(0.9, -180) ..->.. (-0.9, 180)->(-1, 180)
+        # phiMM.shape=cosMM.shape=(100,200)
+        r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
+        r.append(np.nan_to_num(r_temp))
+
+    return np.array(r).reshape(nsize,18,36)
 
 def smoothgauss(MFPAD, sigmax, sigmay):
     """
