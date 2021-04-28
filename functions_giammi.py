@@ -440,6 +440,9 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
             elif normtype==2:
                 for el in a:
                     new_matrix.append(el/np.sum(el))
+            elif normtype==3:
+                for el in a:
+                    new_matrix.append(el/np.linalg.norm(el))
             else:
                 print("Failed to normalise!")
                 return 0
@@ -452,6 +455,8 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
                 new_matrix = a / row_sums[:, np.newaxis]
             elif normtype==2:
                 new_matrix = a / np.sum(a)
+            elif normtype==3:
+                new_matrix = a/ np.linalg.norm(a)
             else:
                 print("Failed to normalise!")
                 return 0
@@ -474,9 +479,13 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
                 for el,elr in zip(a,err):
                     new_matrix.append(el/np.sum(el))
                     new_err.append(elr/np.sum(el))
+            elif normtype==3:
+                for el,elr in zip(a,err):
+                    new_matrix.append(el/np.linalg.norm(el))
+                    new_err.append(elr/np.sum(el))
             else:
                 print("Failed to normalise!")
-            return 0
+                return 0
         else:
             if normtype==0:
                 row_sums = np.sum(a,axis=1)
@@ -521,7 +530,7 @@ def overlaygraph(fig, title="",original=False, wspace=0.08, hspace=0.08):
 
     newax.set_xticks(np.arange(-180,180.1,30, dtype=int))
     newax.set_xlim([-180,180])
-    newax.set_xlabel('phi_photon')
+    newax.set_xlabel('\u03D5 photon')
 
     # newax.set_yticks(np.arange(0,180.1,20, dtype=int))
     # newax.set_ylim([-181,180])
@@ -531,7 +540,7 @@ def overlaygraph(fig, title="",original=False, wspace=0.08, hspace=0.08):
         newax.set_ylim([1,-1])
 
     # newax.set_ylabel('theta_photon')
-    newax.set_ylabel('cos(theta)_photon')
+    newax.set_ylabel('cos(\u03D1) photon')
 
     return (newax)
 
@@ -773,7 +782,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
 
 def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear",convention=1):
     """
-    As the parent function, but for just one MFPAD
+    As the parent function, but for just one MFPAD.
     """
     r=[];
     #in molecular frame
@@ -797,7 +806,8 @@ def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="line
         # therefore (1,-180)->(0.9, -180) ..->.. (-0.9, 180)->(-1, 180)
         # phiMM.shape=cosMM.shape=(100,200)
         r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
-        r.append(np.nan_to_num(r_temp))
+        r.append(np.nan_to_num(r_temp,nan=np.average(np.nan_to_num(r_temp))))
+        # r.append(np.nan_to_num(r_temp))
 
     return np.array(r).reshape(nsize,18,36)
 
@@ -851,11 +861,11 @@ def shift_func(a, flag=0.):
 
 def sorting_array(inarray, theory=True, items=[0], a=1):
     """
-    Sorts the MFPAD or a cos(theta) vector according to either the cos(theta) or the phi photon direction.
-    a is the level according to which values have to be sorted: a = 1 : cos_light, a= 2 : phi_light. The sorting of the second level is True.
-    items (72,) contains the number of elements
-    NOTE: for experimental data the default order is according to phi, vice versa for the theoretical MFPADs.
-    NOTE: the original input vector is cos(theta)=[1,-1], theta=[-180,180] and to match this order items should be coherent
+    Sorts the MFPAD or a cos(theta) vector according to either ascending cos(theta) or ascending phi photon direction.
+    a = 1 : ["cos_light", "phi_light"], a = 2 : ["phi_light", "cos_light"]. The sorting of the second level is = True.
+    item with shape (72,) contains the number of elements matching with the same order as inarray. The default is cosphi_th, even after cos(theta)_el ordering.
+    NOTE: the theoretical MFPADs are originally 1_1, 1_2 ... 1_12, 2_1, 2_2 ... 2_12 .
+    NOTE: the original input vector is cos(theta)_el=[1,-1], theta_el=[-180,180] and to match this order items should be coherent
     """
     #how to check if the non sorted is equal to the processed and non sorted
     # count=0
@@ -869,7 +879,13 @@ def sorting_array(inarray, theory=True, items=[0], a=1):
         data = inarray.reshape(72, inarray.shape[1]*inarray.shape[2]).T
         if theory: #the case for experimental data
             #NOTE the relation between the photon angles and the items is FIXED
-            fixedth = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+            if items[0] == "1_1":
+                fixedth = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+            elif items[0] == "6_1":
+                fixedth = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+            else:
+                print("The cosphi array doesn´t match witht the structure of the input!!")
+                return 1
             cosn=np.array([col[0] for col in fixedth]); #list
             phin=np.array([col[1] for col in fixedth]); #list
             df = pd.DataFrame(
@@ -912,9 +928,12 @@ def sorting_array(inarray, theory=True, items=[0], a=1):
     df1.set_index("phi_light", append=True, inplace=True) #level=2
     if a==1:
         #kind="mergesort" the concept of stable sorting algorithm
-        #df1.sort_values(by=["cos_light", "phi_light"], inplace=True) #light alternative
+        #df1.sort_values(by=["cos_light", "phi_light"], inplace=True) #this is phi
         df1.sort_index(level=(1,2), inplace=True, sort_remaining=True, kind="mergesort")
+
+        #add a debug export for the order of cos and phi!!
     elif a==2:
+        #df1.sort_values(by=["phi_light","cos_light"], inplace=True) #this is cos
         df1.sort_index(level=(2,1), inplace=True, sort_remaining=True, kind="mergesort")
     else:
         print("ERROR: No sorting has been performed!")
