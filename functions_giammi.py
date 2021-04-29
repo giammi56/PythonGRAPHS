@@ -121,24 +121,28 @@ def cosphi_func(key,cosphi):
 
 def create_gocoords(a=1,reduced=False,source=False):
     """
-    a=0 go coordiantes arragend according to ascending phi,
-    a=1 (default) coordiantes arragend according to ascending phi.
-    reduced=True calcualtes the coordinates phi=[-165,165], ctheta=[0.85,-0.85]
-    reduced=False (default) calcualtes the coordinates phi=[-180,180], ctheta=[1,-1]
+    a=0 go coordiantes arragend according to ascending phi_photon, zigzag ctheta_photon,
+    a=1 (default) coordiantes arragend according to ascending ctheta_photon, zigzag phi_photon.
+    a=2  coordiantes arragend according to DESCENDING ctheta_photon, zigzag phi_photon.
+    reduced=True calcualtes the coordinates phi=[-165,165], ctheta=[-0.85,0.85]
+    reduced=False (default) calcualtes the coordinates phi=[-180,180], ctheta=[-1,1]
     #NOTE:
     according to automatic_72_CPR.f90 from philipp [1,6]: is from [0,P1] -> [cos(0), cos(PHI)] = [1,-1]
     according to automatic_72_CPR.f90 from philipp [1,12]: is from [-PI,PI]
     """
     #FULL range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
-    #NOTE the SECOD element in the intertools is the one to which the array is sorted and goes FIRST column
+    #NOTE the SECOND element in the intertools is the one to which the array is sorted and goes FIRST column
     if reduced:
-        #REDUCED range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
         #this matches the experimental values
         cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-0.835,0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
+        cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.linspace(0.835,-0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
         phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(-0.835,0.835,6).tolist()))),3)
+        phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(0.835,-0.835,6).tolist()))),3)
     else:
         cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
+        cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
         phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
+        phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(0,np.pi,6).tolist())))),3)
 
 
     #NOTE: x is always the 12 members array (phi)
@@ -157,6 +161,20 @@ def create_gocoords(a=1,reduced=False,source=False):
             return(xgo_cos,ygo_cos,cosphi_PHOTON_phi)
         else:
             return(xgo_cos,ygo_cos)
+    elif a==2:
+        xgo_fcos=[col[1] for col in cosphi_PHOTON_flipphi]
+        ygo_fcos=[col[0] for col in cosphi_PHOTON_flipphi]
+        if source:
+            return(xgo_fcos,ygo_fcos,cosphi_PHOTON_flipphi)
+        else:
+            return(xgo_fcos,ygo_fcos)
+    if a==3:
+        xgo_fphi=[col[0] for col in phicos_PHOTON_flipcos]
+        ygo_fphi=[col[1] for col in phicos_PHOTON_flipcos]
+        if source:
+            return(xgo_fphi,ygo_fphi,np.flip(phicos_PHOTON_flipcos,axis=1))
+        else:
+            return(xgo_fphi,ygo_fphi)
     else:
         print("NO cooridnates loaded!")
     return(0)
@@ -664,8 +682,8 @@ def plotgo_multiple(param_matrix, xgo, ygo, name, limits=[], tweak=False):
 def projection(MFPAD, alongaxis):
     """
     Return the sum along the chosen axis:
-    axis=0 means along lines, therefore returns cos(theta)
-    axis=1 means along columns, therefore returns cphi.
+    axis=0 means along lines, therefore returns cos(theta)_el
+    axis=1 means along columns, therefore returns phi_el.
     Boths cased of MFPAD tensor and matrix are covered.
     """
     projected=[]
@@ -730,18 +748,21 @@ def rot3d_photo(theta,phi):
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
 
-def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", convention=1):
+def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", convention=1, DEBUG=False):
     """
-    Converts the MFPAD into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
-    rotates them according to the realtive cosphi_adj which contains the photon coordiantes cos(θ) φ ,
-    converts them back into spherical coordinates (physics convention:  polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
-    makes an interpolation of the rotated MFPAD on the new cartesian axes.
-    INPUT: 72 **SORTED** MFPAD, theta and phi with shape (20000,), cosphi_adj_XXX **SORTED ACCORDINGLY TO INPUT** for rotations, phiMM and cosMM linear meshgrid (100,200)
+    1. converts the MFPADs into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
+    2. rotates them according to the realtive cosphi_adj which contains the photon coordiantes cos(θ)_photon φ_photon,
+    3. converts them back into spherical coordinates (physics convention:  polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
+    4. makes an interpolation of the rotated MFPAD on the new cartesian axes.
+    INPUT:  72 **SORTED cos(theta)_el *and* photon** MFPAD, theta and phi with shape (20000,),
+            cosphi_adj_XXX **SORTED photon ACCORDINGLY TO INPUT** ELECTRON for rotations,
+            phiMM and cosMM linear meshgrid (100,200) **SORTED ACCORDING TO COS(THETA) ELECTORN**.
     INPUT_optional: interpolation maethod. default = linear, rotation convention: 1=rotation yaw-pitch-roll, 2=y1x2z3. default convention=1.
     OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force byte phiMM and cosMM
     """
     r=[];ctheta=[];phi=[]
-    cosx_LF_temp=[];
+    d_angle_temp=[];
+    d_phirot_temp=[];
     #in molecular frame
 
     for el,angle in zip(MFPAD,cosphi_adj):
@@ -751,6 +772,9 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
         z = el * np.cos(theta_rad)
 
         xyzm = np.stack((x, y, z))
+
+        if DEBUG:
+            d_angle_temp.append((angle[0],angle[1]))
 
         if len(angle) == 2:
             #1. α=θ β=φ
@@ -777,6 +801,8 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
         # phiMM.shape=cosMM.shape=(100,200)
         r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
         r.append(np.nan_to_num(r_temp))
+    if DEBUG:
+        return d_angle_temp
 
     return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
 
@@ -859,11 +885,12 @@ def shift_func(a, flag=0.):
         a=a.reshape(-1)
     return a
 
-def sorting_array(inarray, theory=True, items=[0], a=1):
+def sorting_array(inarray, theory=True, items=[0], a=1, DEBUG=False):
     """
     Sorts the MFPAD or a cos(theta) vector according to either ascending cos(theta) or ascending phi photon direction.
     a = 1 : ["cos_light", "phi_light"], a = 2 : ["phi_light", "cos_light"]. The sorting of the second level is = True.
-    item with shape (72,) contains the number of elements matching with the same order as inarray. The default is cosphi_th, even after cos(theta)_el ordering.
+    items with shape (72,) contains the STRINGS of elements matching with the same order as inarray e.g. 1_1, 1_2.
+    THEORY: The default items is cosphi_th_std with MFPAD_S_std
     NOTE: the theoretical MFPADs are originally 1_1, 1_2 ... 1_12, 2_1, 2_2 ... 2_12 .
     NOTE: the original input vector is cos(theta)_el=[1,-1], theta_el=[-180,180] and to match this order items should be coherent
     """
@@ -879,13 +906,14 @@ def sorting_array(inarray, theory=True, items=[0], a=1):
         data = inarray.reshape(72, inarray.shape[1]*inarray.shape[2]).T
         if theory: #the case for experimental data
             #NOTE the relation between the photon angles and the items is FIXED
-            if items[0] == "1_1":
+            if items[0] == "1_1": #starts from cos(heta) photon = -1 as cospi_th_std
                 fixedth = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
-            elif items[0] == "6_1":
+            elif items[0] == "6_1": #starts from cos(heta) photon = 1 as cosphi_adj_cos
                 fixedth = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
             else:
                 print("The cosphi array doesn´t match witht the structure of the input!!")
                 return 1
+
             cosn=np.array([col[0] for col in fixedth]); #list
             phin=np.array([col[1] for col in fixedth]); #list
             df = pd.DataFrame(
@@ -926,18 +954,21 @@ def sorting_array(inarray, theory=True, items=[0], a=1):
     df1["phi_light"]=phin
     df1.set_index("cos_light", append=True, inplace=True) #level=1
     df1.set_index("phi_light", append=True, inplace=True) #level=2
+    if DEBUG:
+        dfdebug=df1
     if a==1:
         #kind="mergesort" the concept of stable sorting algorithm
         #df1.sort_values(by=["cos_light", "phi_light"], inplace=True) #this is phi
         df1.sort_index(level=(1,2), inplace=True, sort_remaining=True, kind="mergesort")
-
-        #add a debug export for the order of cos and phi!!
     elif a==2:
         #df1.sort_values(by=["phi_light","cos_light"], inplace=True) #this is cos
         df1.sort_index(level=(2,1), inplace=True, sort_remaining=True, kind="mergesort")
     else:
         print("ERROR: No sorting has been performed!")
         return 0
+
+    if DEBUG:
+        return df.T,dfdebug,df1
 
     df1.reset_index(level=(1,2), drop=True, inplace=True) # removes index
 
