@@ -421,6 +421,32 @@ def mag(vector):
     """
     return math.sqrt(sum(pow(element, 2) for element in vector))
 
+def makeamesh (x,y,z,d):
+    points2d_trace=go.Scatter(x=x, y=y, mode='markers', marker_color='red', marker_size=6)
+    point_trace=go.Scatter(x=x, y=y,
+                         mode='markers',
+                         name='points',
+                         marker_color='red',
+                         marker_size=6)
+    pts2d=np.array([x,y]).T
+    tri=Delaunay(pts2d)
+    delaunay_tri = tr.triangulation_edges(pts2d, tri.simplices, linewidth=1)
+
+    i, j, k = tri.simplices.T
+    my_mesh3d = go.Mesh3d(
+                        x = x,
+                        y = y,
+                        z = z,
+                        i=i, j=j, k=k,
+                        colorscale='deep_r',
+                        colorbar_thickness=25,
+                        intensity=d,
+                        flatshading=True)
+
+    points3d=np.array([x,y,z]).T
+    delaun_tri3d=tr.triangulation_edges(points3d, tri.simplices)
+    return delaunay_tri, point_trace, my_mesh3d, delaun_tri3d
+
 def matplotlib_to_plotly(cmap, pl_entries):
     """
     To be used in cmaptep
