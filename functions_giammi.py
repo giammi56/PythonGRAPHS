@@ -565,7 +565,12 @@ def overlaygraph(fig, title="",original=False, wspace=0.08, hspace=0.08):
 def plot_interpolation (x, y, z, ax, cmap="viridis", xstep=1, ystep=.001, cont=True, kind="cubic", n=15):
     """
     Interpolates MFPAD and b1 with the unique x and y. Draws with pcolormesh with contour.
-    It uses the size match x (m,) y (n,) z (n,m) e.g. for b1 (12,) (6,) (6,12), but lieanr z can be provided.
+    FOR MFPADS(100,200) it is usually .T to match the dimension of phiM(100,) and cosM(200,)
+
+    IF x (m,) y (n,) z (n,m) e.g. for b1 (12,) (6,) (12,6).T for xx_phi sortings
+    IF x (m,) y (n,) z (n,m) e.g. for b1 (12,) (6,) (6,12) for xx_cos sortings
+
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp2d.html
     """
     # maybe a more elegant way would be using mgrid. NOTE the use of cosphi_adj_cos!
     # grid_x, grid_y = np.mgrid[-0.835:0.835:100j, -165:165:200j]
@@ -786,7 +791,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
             #2a. α=φ, β=θ+pi/2
             # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0])+np.pi*0.5,0,convention=convention), xyzm)
         else:
-            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,angle[1]*np.pi/180.,angle[2]*np.pi/180.,convention=convention), xyzm)
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention), xyzm)
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
 
