@@ -550,10 +550,12 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
         else:
             return np.array(new_matrix), np.array(new_err)
 
-def overlaygraph(fig, title="",original=False, wspace=0.08, hspace=0.08):
+def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
     """
     Overlays the typical graphs with photon coordiantes x=phi, y=cos(theta).
     Set the space in between the subplots via fig.
+    Original = True is the new stardar according to the way of filling the histograms
+    with np.flip for phi
     """
     # fig.tight_layout() #NOTE goes in conflict with subplots_adjust
     fig.subplots_adjust(wspace=wspace, hspace=hspace)
@@ -588,7 +590,7 @@ def overlaygraph(fig, title="",original=False, wspace=0.08, hspace=0.08):
 
     return (newax)
 
-def plot_interpolation (x, y, z, ax, cmap="viridis", xstep=1, ystep=.001, cont=True, kind="cubic", n=15):
+def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, kind="cubic", n=15):
     """
     Interpolates MFPAD and b1 with the unique x and y. Draws with pcolormesh with contour.
     FOR MFPADS(100,200) it is usually .T to match the dimension of phiM(100,) and cosM(200,)
@@ -597,10 +599,17 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", xstep=1, ystep=.001, cont=T
     IF x (m,) y (n,) z (n,m) e.g. for b1 (12,) (6,) (6,12) for xx_cos sortings
 
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp2d.html
+
+    limits can be a boolean (computes the min and max of the input), or an array of floats [min,max]
     """
     # maybe a more elegant way would be using mgrid. NOTE the use of cosphi_adj_cos!
     # grid_x, grid_y = np.mgrid[-0.835:0.835:100j, -165:165:200j]
     # grid_z2 = griddata(cosphi_adj_cos, param_matrix_cos[:,0,0], (grid_x, grid_y), method='cubic')
+
+    if limits == True:
+        limits=[1]
+    elif limits == False:
+        limits=[]
 
     if len(z.shape)<2:
         z=z.reshape(len(y),-1)
@@ -609,7 +618,17 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", xstep=1, ystep=.001, cont=T
     ynew = np.arange(y.min(), y.max(), ystep)
     Zn = f(xnew,ynew)
     Xn, Yn = np.meshgrid(xnew, ynew)
-    cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap)
+
+    if len(limits)==1:
+        cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud',cmap=cmap)
+        # print("test")
+    elif len(limits)==2:
+        cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud',cmap=cmap)
+        # print("test1")
+    else:
+        cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap)
+        # print("test2")
+
     if cont:
         ax.contour(Xn, Yn, gaussian_filter(Zn, 4.), n, colors='k', alpha=0.15)
     return(cs,ax)
