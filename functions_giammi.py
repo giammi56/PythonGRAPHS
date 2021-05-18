@@ -782,6 +782,11 @@ def rot3d(alpha,beta,gamma,convention=1):
         rot = np.array([[np.cos(alpha)*np.cos(gamma)-np.sin(alpha)*np.cos(beta)*np.sin(gamma), -np.cos(alpha)*np.sin(gamma)-np.sin(alpha)*np.cos(beta)*np.cos(gamma),  np.sin(alpha)*np.sin(beta)],
                         [np.sin(alpha)*np.cos(gamma)+np.cos(alpha)*np.cos(beta)*np.sin(gamma), -np.sin(alpha)*np.sin(gamma)+np.cos(alpha)*np.cos(beta)*np.cos(gamma), -np.cos(alpha)*np.sin(beta)],
                         [np.sin(beta)*np.sin(gamma)                                           , np.sin(beta)*np.cos(gamma)                                          ,  np.cos(beta)              ]])
+    #y1z2zrot convention
+    elif convention==3:
+        rot = np.array([[np.cos(gamma)*np.cos(alpha)-np.sin(gamma)*np.cos(beta)*np.sin(alpha),  np.cos(gamma)*np.sin(alpha)+np.sin(gamma)*np.cos(beta)*np.cos(alpha),  np.sin(gamma)*np.sin(beta)],
+                       [-np.sin(gamma)*np.cos(alpha)-np.cos(gamma)*np.cos(beta)*np.sin(alpha), -np.sin(gamma)*np.sin(alpha)+np.cos(gamma)*np.cos(beta)*np.cos(alpha),  np.cos(gamma)*np.sin(beta)],
+                        [np.sin(beta)*np.sin(alpha)                                           ,-np.sin(beta)*np.cos(alpha)                                          ,  np.cos(beta)              ]])
 
     return rot
 
@@ -828,13 +833,13 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
 
         if len(angle) == 2:
             #1. α=θ β=φ
-            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
-            #1a. α=θ+pi/2 β=φ
-            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0,convention=convention), xyzm)
-            #2. α=φ β=θ
-            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=convention), xyzm)
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0.,convention=convention), xyzm)
+            #1a. β=θ α=gamma (convention 3 with alpha)
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=3), xyzm)
+            # 2. α=φ β=θ (default with convention 1)
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=convention), xyzm)
             #2a. α=φ, β=θ+pi/2
-            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0])+np.pi*0.5,0,convention=convention), xyzm)
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0])+np.pi*0.5,0.,convention=convention), xyzm)
         else:
             x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention), xyzm)
 
@@ -880,12 +885,12 @@ def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="line
 
         #NOTE phiMM and cosMM should cover the way el is originally created:
         # therefore (1,-180)->(0.9, -180) ..->.. (-0.9, 180)->(-1, 180)
-        # phiMM.shape=cosMM.shape=(100,200)
+        # phiMM.shape=cosMM.shape=(648,)
         r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
         r.append(np.nan_to_num(r_temp,nan=np.average(np.nan_to_num(r_temp))))
         # r.append(np.nan_to_num(r_temp))
 
-    return np.array(r).reshape(nsize,18,36)
+    return np.array(r).reshape(nsize,36,18)
 
 def smoothgauss(MFPAD, sigmax, sigmay):
     """
