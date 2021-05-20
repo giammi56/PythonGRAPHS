@@ -590,7 +590,7 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
 
     return (newax)
 
-def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, kind="cubic", n=15):
+def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, kind="cubic", gaussian=0, n=15):
     """
     Interpolates MFPAD and b1 with the unique x and y. Draws with pcolormesh with contour.
     FOR MFPADS(100,200) it is usually .T to match the dimension of phiM(100,) and cosM(200,)
@@ -601,6 +601,7 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp2d.html
 
     limits can be a boolean (computes the min and max of the input), or an array of floats [min,max]
+    suggested gaussian value for MFPAD is 5 or more
     """
     # maybe a more elegant way would be using mgrid. NOTE the use of cosphi_adj_cos!
     # grid_x, grid_y = np.mgrid[-0.835:0.835:100j, -165:165:200j]
@@ -617,6 +618,9 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
     xnew = np.arange(x.min(), x.max(), xstep)
     ynew = np.arange(y.min(), y.max(), ystep)
     Zn = f(xnew,ynew)
+    if gaussian>0:
+        # print("Gaussian filter applied..")
+        Zn=gaussian_filter(Zn,sigma=gaussian)
     Xn, Yn = np.meshgrid(xnew, ynew)
 
     if len(limits)==1:
@@ -630,7 +634,7 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
         # print("test2")
 
     if cont:
-        ax.contour(Xn, Yn, gaussian_filter(Zn, 4.), n, colors='k', alpha=0.15)
+        ax.contour(Xn, Yn, gaussian_filter(Zn, sigma=4.), n, colors='k', alpha=0.15)
     return(cs,ax)
     # return(Xn,Yn)
 
@@ -766,23 +770,24 @@ def remap(b,lim1_low,lim1_high,lim2_low=0,lim2_high=0, rounding=False):
 def rot3d(alpha,beta,gamma,convention=1):
     """
     It computes the intrinsic rotation according to the convention z,x',z''.
-    The angles are β around z, α around x, and γ around y. β=θ and α=φ in spherical coordinates!
-    convention 1: passive rotation yaw pitch roll (around -z) convention: 3X3 Rtot=Rz(α)Ry(β)Rx(γ) matrix
-    convention 2: active rotation y1 x2 z3 convention: 3X3 Rtot=Rz(α)Rx(β)Rz(γ) matrix
+    The angles are β around z, α around x, and γ around y. β=θ and α=φ in spherical coordinates according to the physics convention!
+    convention 1: Tait–Bryan angles passive rotation yaw pitch roll (around -z nd NEGATIVE θ) convention: 3X3 Rtot=Rz(α)Ry(β)Rx(γ) matrix
+    convention 2: Euler angles rotation z1 x2 z3 convention: 3X3 Rtot=Rz(α)Rx(β)Rz(γ) matrix
     ref: https://de.wikipedia.org/wiki/Eulersche_Winkel
     """
-    #yaw pitch roll convention
+    #z1y2x3 yaw pitch roll convention
     if convention==1:
         rot = np.array([[np.cos(beta)*np.cos(alpha), np.sin(gamma)*np.sin(beta)*np.cos(alpha)-np.cos(gamma)*np.sin(alpha), np.cos(gamma)*np.sin(beta)*np.cos(alpha)+np.sin(gamma)*np.sin(alpha)],
                         [np.cos(beta)*np.sin(alpha), np.sin(gamma)*np.sin(beta)*np.sin(alpha)+np.cos(gamma)*np.cos(alpha), np.cos(gamma)*np.sin(beta)*np.sin(alpha)-np.sin(gamma)*np.cos(alpha)],
                        [-np.sin(beta)              , np.sin(gamma)*np.cos(beta)                                          , np.cos(gamma)*np.cos(beta)                                         ]])
 
-    #y1x2z3 convention
+    #z1x2z3 convention proper Euler angles convention
     elif convention==2:
         rot = np.array([[np.cos(alpha)*np.cos(gamma)-np.sin(alpha)*np.cos(beta)*np.sin(gamma), -np.cos(alpha)*np.sin(gamma)-np.sin(alpha)*np.cos(beta)*np.cos(gamma),  np.sin(alpha)*np.sin(beta)],
                         [np.sin(alpha)*np.cos(gamma)+np.cos(alpha)*np.cos(beta)*np.sin(gamma), -np.sin(alpha)*np.sin(gamma)+np.cos(alpha)*np.cos(beta)*np.cos(gamma), -np.cos(alpha)*np.sin(beta)],
                         [np.sin(beta)*np.sin(gamma)                                           , np.sin(beta)*np.cos(gamma)                                          ,  np.cos(beta)              ]])
-    #y1z2zrot convention
+
+    #x'y'z convention from "mathematics for QM"
     elif convention==3:
         rot = np.array([[np.cos(gamma)*np.cos(alpha)-np.sin(gamma)*np.cos(beta)*np.sin(alpha),  np.cos(gamma)*np.sin(alpha)+np.sin(gamma)*np.cos(beta)*np.cos(alpha),  np.sin(gamma)*np.sin(beta)],
                        [-np.sin(gamma)*np.cos(alpha)-np.cos(gamma)*np.cos(beta)*np.sin(alpha), -np.sin(gamma)*np.sin(alpha)+np.cos(gamma)*np.cos(beta)*np.cos(alpha),  np.cos(gamma)*np.sin(beta)],
@@ -798,6 +803,7 @@ def rot3d_photo(theta,phi):
     ref: https://de.wikipedia.org/wiki/Eulersche_Winkel
     NOTE: REMEBER TO INPUT THE ANGLES IN RAD. IT IS A 2D ARRAY (rank 3) -> 3X3 matrix
     """
+    #z1y2x3 yaw pitch roll convention
     rot_matrix = np.array([[np.cos(phi)*np.cos(theta), -np.sin(theta), np.sin(phi)*np.cos(theta)],
                            [np.cos(phi)*np.sin(theta), np.cos(theta) , np.sin(phi)*np.sin(theta)],
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
@@ -834,14 +840,17 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
         if len(angle) == 2:
             #1. α=θ β=φ
             # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(np.arccos(angle[0]),angle[1]*np.pi/180.,0.,convention=convention), xyzm)
-            #1a. β=θ α=gamma (convention 3 with alpha)
-            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=3), xyzm)
-            # 2. α=φ β=θ (default with convention 1)
-            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=convention), xyzm)
-            #2a. α=φ, β=θ+pi/2
-            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0])+np.pi*0.5,0.,convention=convention), xyzm)
+            #2. α=φ β=θ (default with convention 1)
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),0.,convention=convention).T, xyzm)
+            #3. α=φ β=pi/2-θ and **TRANSPOSED** as pointed out https://de.wikipedia.org/wiki/Eulersche_Winkel
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arcsin(angle[0]),0.,convention=convention).T, xyzm)
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,(np.pi)/2.-np.arcos(angle[0]),0.,convention=convention).T, xyzm)
+            #4. α=φ, β=θ (convention 2 with Euler angles)
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,0.,np.arccos(angle[0]),convention=convention), xyzm)
+            #4. α=φ, β=θ (convention 2 with Euler angles)
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,0.,np.arcsin(angle[0]),convention=convention), xyzm)
         else:
-            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention), xyzm)
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention).T, xyzm)
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
 
