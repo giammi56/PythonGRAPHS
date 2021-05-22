@@ -831,7 +831,6 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
         x = el * np.sin(theta_rad) * np.cos(phi_rad)
         y = el * np.sin(theta_rad) * np.sin(phi_rad)
         z = el * np.cos(theta_rad)
-
         xyzm = np.stack((x, y, z))
 
         if DEBUG:
@@ -884,7 +883,7 @@ def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="line
     nsize=len(cosphi_adj)
 
     for angle in cosphi_adj:
-        x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,angle[1]*np.pi/180.,angle[2]*np.pi/180.,convention=convention), xyzm)
+        x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,angle[1]*np.pi/180.,angle[2]*np.pi/180.,convention=convention).T, xyzm)
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
         #cos domain  0 < θ ≤ π
