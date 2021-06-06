@@ -18,6 +18,7 @@ import triangulation as tr
 import scipy as sp
 import scipy.ndimage
 from scipy.spatial import Delaunay
+from scipy import interpolate
 from scipy.interpolate import griddata
 from scipy.interpolate import interp2d
 from scipy.ndimage.filters import gaussian_filter
@@ -119,7 +120,7 @@ def cosphi_func(key,cosphi):
     cosphi.append((ctheta_nc, phi_nc))
     return cosphi
 
-def create_gocoords(a=1,reduced=False,source=False):
+def create_gocoords(a=1,reduced=False,limits=[0.835,165], source=False):
     """
     a=0 go coordiantes arragend according to ascending phi_photon, zigzag ctheta_photon,
     a=1 (default) coordiantes arragend according to ascending ctheta_photon, zigzag phi_photon.
@@ -132,13 +133,18 @@ def create_gocoords(a=1,reduced=False,source=False):
     """
     #FULL range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
     #NOTE the SECOND element in the intertools is the one to which the array is sorted and goes FIRST column
-    if reduced:
+    if reduced and limits[0] == 0.835:
         #this matches the experimental values
         cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-0.835,0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
         cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.linspace(0.835,-0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
         phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(-0.835,0.835,6).tolist()))),3)
         phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(0.835,-0.835,6).tolist()))),3)
-    else:
+    elif reduced and limits[0] != 0.835:
+        cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-limits[0],limits[0],6).tolist(),np.linspace(-limits[1],limits[1],12).tolist()))),3)
+        cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.linspace(limits[0],-limits[0],6).tolist(),np.linspace(-limits[1],limits[1],12).tolist()))),3)
+        phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-limits[1],limits[1],12).tolist(),np.linspace(-limits[0],limits[0],6).tolist()))),3)
+        phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(-limits[1],limits[1],12).tolist(),np.linspace(limits[0],-limits[0],6).tolist()))),3)
+    elif reduced == False:
         cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
         cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
         phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
@@ -231,7 +237,7 @@ def error_calc(a,b,aerr=1,berr=1,error_type="PECD_S"):
     elif error_type == "PECD_S":
         return (np.add(a,b)**-0.5)
     elif error_type == "SUM" or error_type == "DIFF":
-        return np.sqrt(aerr**2+berr**2)
+        return np.sqrt(a**2+b**2)
     elif error_type == "PROD":
         return np.multiply(a,b)*np.sqrt((aerr/a)**2+(berr/b)**2)
     elif error_type == "DIV":
@@ -463,11 +469,13 @@ def matplotlib_to_plotly(cmap, pl_entries):
 def normalise_with_err(a,err=0,normtype=2,nancorr=False):
     """
     It normalises a [n,m] matrix.
-    normtpe 0 and 1 are normalized along rows.
-    normtpe 2 is a scaling on the integral of the matrix.
+    normtype 0 is a coefficient of variation along the rows.
+    normtype 1 is a vector normalization along the rows.
+    normtype 2 is a coefficient of variation, results proportional to the total counts (integral).
+    normtype 3 is a min max feature scaling, results between 0 - 1.
     nancorr: substitutes 0 with NaN.
 
-    Very simple: if I normalize using the sum the standard error SE has to be divided by the same quantity.
+    For errors: if I normalize using the integral sum, the standard error SE has to be divided by the same quantity.
     NOTE it is likely that error shouldn´t be normalized in the approximation.
     https://faraday.physics.utoronto.ca/PVB/Harrison/ErrorAnalysis/Propagation.html
     """
@@ -486,7 +494,7 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
                     new_matrix.append(el/np.sum(el))
             elif normtype==3:
                 for el in a:
-                    new_matrix.append(el/np.linalg.norm(el))
+                    new_matrix.append((el-el.min())/(el.max()-el.min()))
             else:
                 print("Failed to normalise!")
                 return 0
@@ -500,7 +508,7 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
             elif normtype==2:
                 new_matrix = a / np.sum(a)
             elif normtype==3:
-                new_matrix = a/ np.linalg.norm(a)
+                new_matrix = (a - a.min()) /(a.max()-a.min())
             else:
                 print("Failed to normalise!")
                 return 0
@@ -525,8 +533,8 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
                     new_err.append(elr/np.sum(el))
             elif normtype==3:
                 for el,elr in zip(a,err):
-                    new_matrix.append(el/np.linalg.norm(el))
-                    new_err.append(elr/np.sum(el))
+                    new_matrix.append((el-el.min())/(el.max()-el.min()))
+                    new_err.append(elr/(el.max()-el.min()))
             else:
                 print("Failed to normalise!")
                 return 0
@@ -542,6 +550,9 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
             elif normtype==2:
                 new_matrix = a / np.sum(a)
                 new_err = err / np.sum(a)
+            elif normtype==3:
+                new_matrix = (a - a.min()) /(a.max()-a.min())
+                new_err = err / (a.max()-a.min())
             else:
                 print("Failed to normalise!")
                 return 0
@@ -809,7 +820,7 @@ def rot3d_photo(theta,phi):
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
 
-def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", convention=1, DEBUG=False):
+def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=0.0001,gaussian=0,DEBUG=False):
     """
     1. converts the MFPADs into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
     2. rotates them according to the realtive cosphi_adj which contains the photon coordiantes cos(θ)_photon φ_photon,
@@ -821,16 +832,14 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
     INPUT_optional: interpolation maethod. default = linear, rotation convention: 1=rotation yaw-pitch-roll, 2=y1x2z3. default convention=1.
     OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force byte phiMM and cosMM
     """
-    r=[];ctheta=[];phi=[]
-    d_angle_temp=[];
-    d_phirot_temp=[];
-    #in molecular frame
+    r_rot=[];d_angle_temp=[];ctheta_temp=[];phi_temp=[];
+    theta = np.linspace(0.,np.pi, len(cosM))
+    phi = np.linspace(0.,2*np.pi, len(phiM))
 
     for el,angle in zip(MFPAD,cosphi_adj):
-        el = el.reshape(-1)
-        x = el * np.sin(theta_rad) * np.cos(phi_rad)
-        y = el * np.sin(theta_rad) * np.sin(phi_rad)
-        z = el * np.cos(theta_rad)
+        x = el.reshape(-1) * np.sin(theta_rad) * np.cos(phi_rad)
+        y = el.reshape(-1) * np.sin(theta_rad) * np.sin(phi_rad)
+        z = el.reshape(-1) * np.cos(theta_rad)
         xyzm = np.stack((x, y, z))
 
         if DEBUG:
@@ -846,59 +855,61 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear", 
             # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,(np.pi)/2.-np.arcos(angle[0]),0.,convention=convention).T, xyzm)
             #4. α=φ, β=θ (convention 2 with Euler angles)
             # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,0.,np.arccos(angle[0]),convention=convention), xyzm)
-            #4. α=φ, β=θ (convention 2 with Euler angles)
-            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,0.,np.arcsin(angle[0]),convention=convention), xyzm)
         else:
             x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention).T, xyzm)
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
 
-        #cos domain  0 < θ ≤ π
-        ctheta_temp=(z_LF/mag_LF)
-        ctheta.append(ctheta_temp)
-        #atan2 domain  −π < θ ≤ π
-        phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
-        phi.append(phi_temp)
-        #NOTE phiMM and cosMM should cover the way el is originally created:
-        # therefore (1,-180)->(0.9, -180) ..->.. (-0.9, 180)->(-1, 180)
-        # phiMM.shape=cosMM.shape=(100,200)
-        r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
-        r.append(np.nan_to_num(r_temp))
+        if gaussian > 0:
+            #cos domain  0 < θ ≤ π
+            ctheta_rot=gaussian_filter(z_LF/mag_LF, sigma=gaussian)
+            #atan2 domain  −π < θ ≤ π
+            phi_rot=gaussian_filter(np.arctan2(y_LF,x_LF)*180./np.pi, sigma=gaussian)
+        else:
+            #cos domain  0 < θ ≤ π
+            ctheta_rot=(z_LF/mag_LF)
+            #atan2 domain  −π < θ ≤ π
+            phi_rot=(np.arctan2(y_LF,x_LF)*180./np.pi)
+
+        ctheta_temp.append(ctheta_rot)
+        phi_temp.append(phi_rot)
+
+        f = interpolate.SmoothSphereBivariateSpline(np.arccos(ctheta_rot), phi_rot*np.pi/180.+np.pi, mag_LF, s=s)
+        r_rot.append(f(theta,phi).T)
+
     if DEBUG:
         return d_angle_temp
 
-    return np.array(r).reshape(72,200,100), np.array(ctheta).reshape(72,200,100), np.array(phi).reshape(72,200,100)
+    return np.array(r_rot).reshape(len(cosphi_adj),200,100),np.array(ctheta_temp).reshape(len(cosphi_adj),200,100),np.array(phi_temp).reshape(len(cosphi_adj),200,100)
 
-def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiMM,cosMM,method="linear",convention=1):
+def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=0.1):
     """
     As the parent function, but for just one MFPAD.
     """
-    r=[];
-    #in molecular frame
-    el = MFPAD.reshape(-1)
-    x = el * np.sin(theta_rad) * np.cos(phi_rad)
-    y = el * np.sin(theta_rad) * np.sin(phi_rad)
-    z = el * np.cos(theta_rad)
-    xyzm = np.stack((x, y, z))
+    r_rot=[];
     nsize=len(cosphi_adj)
+    theta = np.linspace(0.,np.pi, len(cosM))
+    phi = np.linspace(0.,2*np.pi, len(phiM))
+
+    #in molecular fram
+    x = MFPAD.reshape(-1) * np.sin(theta_rad) * np.cos(phi_rad)
+    y = MFPAD.reshape(-1) * np.sin(theta_rad) * np.sin(phi_rad)
+    z = MFPAD.reshape(-1) * np.cos(theta_rad)
+    xyzm = np.stack((x, y, z))
 
     for angle in cosphi_adj:
         x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,angle[1]*np.pi/180.,angle[2]*np.pi/180.,convention=convention).T, xyzm)
-
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
+
         #cos domain  0 < θ ≤ π
-        ctheta_temp=(z_LF/mag_LF)
+        ctheta_rot=(z_LF/mag_LF)
         #atan2 domain  −π < θ ≤ π
-        phi_temp=(np.arctan2(y_LF,x_LF)*180./np.pi)
+        phi_rot=(np.arctan2(y_LF,x_LF)*180./np.pi)
 
-        #NOTE phiMM and cosMM should cover the way el is originally created:
-        # therefore (1,-180)->(0.9, -180) ..->.. (-0.9, 180)->(-1, 180)
-        # phiMM.shape=cosMM.shape=(648,)
-        r_temp=griddata(list(zip(phi_temp.reshape(-1),ctheta_temp.reshape(-1))), el.reshape(-1), (phiMM.T, cosMM.T), method=method)
-        r.append(np.nan_to_num(r_temp,nan=np.average(np.nan_to_num(r_temp))))
-        # r.append(np.nan_to_num(r_temp))
+        f = interpolate.SmoothSphereBivariateSpline(np.arccos(ctheta_rot), phi_rot*np.pi/180.+np.pi, mag_LF, s=s)
+        r_rot.append(f(theta,phi).T)
 
-    return np.array(r).reshape(nsize,36,18)
+    return np.array(r_rot).reshape(nsize,36,18)
 
 def smoothgauss(MFPAD, sigmax, sigmay):
     """
