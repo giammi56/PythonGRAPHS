@@ -2,6 +2,7 @@ import itertools
 from itertools import count
 
 import math
+import time
 
 import numpy as np
 from numpy.core.defchararray import array
@@ -120,36 +121,45 @@ def cosphi_func(key,cosphi):
     cosphi.append((ctheta_nc, phi_nc))
     return cosphi
 
-def create_gocoords(a=1,reduced=False,limits=[0.835,165], source=False):
+def create_gocoords(a=1,cos_lin=True,limits=[0,0,0,0], source=False):
     """
     a=0 go coordiantes arragend according to ascending phi_photon, zigzag ctheta_photon,
     a=1 (default) coordiantes arragend according to ascending ctheta_photon, zigzag phi_photon.
     a=2  coordiantes arragend according to DESCENDING ctheta_photon, zigzag phi_photon.
-    reduced=True calcualtes the coordinates phi=[-165,165], ctheta=[-0.85,0.85]
-    reduced=False (default) calcualtes the coordinates phi=[-180,180], ctheta=[-1,1]
-    #NOTE:
+    a=3  coordiantes arragend according to DESCENDING ctheta_photon, zigzag phi_photon.
+    cos_lin=True photon coordiantes linear in cos(theta)
+    cos_lin=False (default) photon coordiants linear in theta
+    limits=[a,b,c,d] in the order from ctheta -1 to 1 and phi -180 to 180 OR EQUVALENTE ctheta np.pi to 0.
+    #NOTE: theta and cos(theta) are oppiste
     according to automatic_72_CPR.f90 from philipp [1,6]: is from [0,P1] -> [cos(0), cos(PHI)] = [1,-1]
     according to automatic_72_CPR.f90 from philipp [1,12]: is from [-PI,PI]
     """
     #FULL range according to Philipp cos(theta)=[1,-1], phi=[-180,180]
     #NOTE the SECOND element in the intertools is the one to which the array is sorted and goes FIRST column
-    if reduced and limits[0] == 0.835:
-        #this matches the experimental values
+    if cos_lin and limits[0] == 0: #this matches the experimental values
+        print("STANDARD limits ph coord!")
         cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-0.835,0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
         cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.linspace(0.835,-0.835,6).tolist(),np.linspace(-165,165,12).tolist()))),3)
         phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(-0.835,0.835,6).tolist()))),3)
         phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(-165,165,12).tolist(),np.linspace(0.835,-0.835,6).tolist()))),3)
-    elif reduced and limits[0] != 0.835:
-        cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(-limits[0],limits[0],6).tolist(),np.linspace(-limits[1],limits[1],12).tolist()))),3)
-        cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.linspace(limits[0],-limits[0],6).tolist(),np.linspace(-limits[1],limits[1],12).tolist()))),3)
-        phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-limits[1],limits[1],12).tolist(),np.linspace(-limits[0],limits[0],6).tolist()))),3)
-        phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(-limits[1],limits[1],12).tolist(),np.linspace(limits[0],-limits[0],6).tolist()))),3)
-    elif reduced == False:
+    elif cos_lin and limits[0] != 0:
+        print("Custom limits ph coord!")
+        cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.linspace(limits[0],limits[1],6).tolist(),np.linspace(limits[2],limits[3],12).tolist()))),3)
+        cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.linspace(limits[1],limits[0],6).tolist(),np.linspace(limits[2],limits[3],12).tolist()))),3)
+        phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(limits[2],limits[3],12).tolist(),np.linspace(limits[0],limits[1],6).tolist()))),3)
+        phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(limits[2],limits[3],12).tolist(),np.linspace(limits[1],limits[0],6).tolist()))),3)
+    elif cos_lin == False and limits[0] == 0:
+        print("STANDARD limits ph coord!")
         cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(np.pi,0,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
         cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.cos(np.linspace(0,np.pi,6).tolist()),np.linspace(-180,180,12).tolist()))),3)
         phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(np.pi,0,6).tolist())))),3)
         phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(-180,180,12).tolist(),np.cos(np.linspace(0,np.pi,6).tolist())))),3)
-
+    elif cos_lin == False and limits[0] != 0:
+        print("Custom limits ph coord!")
+        cosphi_PHOTON_phi = np.around(np.array(list(itertools.product(np.cos(np.linspace(limits[0],limits[1],6).tolist()),np.linspace(limits[2],limits[3],12).tolist()))),3)
+        cosphi_PHOTON_flipphi = np.around(np.array(list(itertools.product(np.cos(np.linspace(limits[1],limits[0],6).tolist()),np.linspace(limits[2],limits[3],12).tolist()))),3)
+        phicos_PHOTON_cos = np.around(np.array(list(itertools.product(np.linspace(limits[2],limits[3],12).tolist(),np.cos(np.linspace(limits[0],limits[1],6).tolist())))),3)
+        phicos_PHOTON_flipcos = np.around(np.array(list(itertools.product(np.linspace(limits[2],limits[3],12).tolist(),np.cos(np.linspace(limits[1],limits[0],6).tolist())))),3)
 
     #NOTE: x is always the 12 members array (phi)
     #      y is always the 6 members array (cos(theta))
@@ -820,7 +830,7 @@ def rot3d_photo(theta,phi):
                            [-np.sin(phi)             , 0             , np.cos(phi)              ]])
     return rot_matrix
 
-def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=0.0001,gaussian=0,DEBUG=False):
+def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None,upscale=[False,1,180,100j,200j],gaussian=0,DEBUG=False):
     """
     1. converts the MFPADs into cartesian coordiantes (i.e. computes the the e[0].mom in MF),
     2. rotates them according to the realtive cosphi_adj which contains the photon coordiantes cos(θ)_photon φ_photon,
@@ -832,18 +842,20 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=0.00
     INPUT_optional: interpolation maethod. default = linear, rotation convention: 1=rotation yaw-pitch-roll, 2=y1x2z3. default convention=1.
     OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force byte phiMM and cosMM
     """
-    r_rot=[];d_angle_temp=[];ctheta_temp=[];phi_temp=[];
-    theta = np.linspace(0.,np.pi, len(cosM))
-    phi = np.linspace(0.,2*np.pi, len(phiM))
+    r_rot=[];ctheta_temp=[];phi_temp=[];
+
+    if DEBUG:
+        tic = time.perf_counter()
+        i=0
 
     for el,angle in zip(MFPAD,cosphi_adj):
+        if DEBUG:
+            tic_1cycle = time.perf_counter()
+
         x = el.reshape(-1) * np.sin(theta_rad) * np.cos(phi_rad)
         y = el.reshape(-1) * np.sin(theta_rad) * np.sin(phi_rad)
         z = el.reshape(-1) * np.cos(theta_rad)
         xyzm = np.stack((x, y, z))
-
-        if DEBUG:
-            d_angle_temp.append((angle[0],angle[1]))
 
         if len(angle) == 2:
             #1. α=θ β=φ
@@ -859,57 +871,106 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=0.00
             x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention).T, xyzm)
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
+        # fix=np.flip(np.array(mag_LF).reshape(len(phiM),len(cosM)),axis=1) #this fix comes to accomodate the theta monotonic
 
         if gaussian > 0:
-            #cos domain  0 < θ ≤ π
-            ctheta_rot=gaussian_filter(z_LF/mag_LF, sigma=gaussian)
-            #atan2 domain  −π < θ ≤ π
-            phi_rot=gaussian_filter(np.arctan2(y_LF,x_LF)*180./np.pi, sigma=gaussian)
+            ctheta_rot=gaussian_filter(z_LF/mag_LF, sigma=gaussian) #cos domain  0 < θ ≤ π
+            phi_rot=gaussian_filter(np.arctan2(y_LF,x_LF)*180./np.pi, sigma=gaussian) #atan2 domain  −π < θ ≤ π
         else:
-            #cos domain  0 < θ ≤ π
-            ctheta_rot=(z_LF/mag_LF)
-            #atan2 domain  −π < θ ≤ π
-            phi_rot=(np.arctan2(y_LF,x_LF)*180./np.pi)
+            ctheta_rot=(z_LF/mag_LF) #cos domain  0 < θ ≤ π
+            phi_rot=(np.arctan2(y_LF,x_LF)*180./np.pi) #atan2 domain  −π < θ ≤ π
 
         ctheta_temp.append(ctheta_rot)
         phi_temp.append(phi_rot)
 
-        f = interpolate.SmoothSphereBivariateSpline(np.arccos(ctheta_rot), phi_rot*np.pi/180.+np.pi, mag_LF, s=s)
-        r_rot.append(f(theta,phi).T)
+        if upscale[0]:
+            cos_newfull, phi_newfull = np.mgrid[-1*upscale[1]:upscale[1]:upscale[3], -1*upscale[2]:upscale[2]:upscale[4]]
+            if DEBUG and i==0:
+                print("upscale")
+            if s is None:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, w=mag_LF**-0.5, s=np.std(mag_LF))
+            else:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, s=s)
+            r_rot.append(interpolate.bisplev(cos_newfull[:,0], phi_newfull[0,:],f).T)
+        else:
+            if DEBUG and i==0:
+                print("normal")
+            if s is None:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, w=mag_LF**-0.5, s=np.std(mag_LF))
+            else:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, s=s)
+            r_rot.append(interpolate.bisplev(cosM,phiM,f).T)
+        # f = interpolate.SmoothSphereBivariateSpline(np.arccos(ctheta_rot), phi_rot*np.pi/180.+np.pi, fix.reshape(-1), s=s)
+        # r_rot.append(f(theta,phi).T)
+        if DEBUG:
+            toc_1cycle = time.perf_counter()
+            print(f"{i:0d} cycles in {toc_1cycle - tic:0.4f} seconds, one cycle in {toc_1cycle - tic_1cycle:0.4f} seconds")
+            i+=1
 
     if DEBUG:
-        return d_angle_temp
+        toc = time.perf_counter()
+        print(f"All cycles in {toc - tic:0.4f} seconds")
 
     return np.array(r_rot).reshape(len(cosphi_adj),200,100),np.array(ctheta_temp).reshape(len(cosphi_adj),200,100),np.array(phi_temp).reshape(len(cosphi_adj),200,100)
 
-def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=0.1):
+def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None,upscale=[False,1,180,100j,200j],gaussian=0, DEBUG=False):
     """
     As the parent function, but for just one MFPAD.
     """
-    r_rot=[];
-    nsize=len(cosphi_adj)
-    theta = np.linspace(0.,np.pi, len(cosM))
-    phi = np.linspace(0.,2*np.pi, len(phiM))
+    r_rot=[]; nsize=len(cosphi_adj)
+    dim_phi=len(phiM) #correct with the if for upscale!!!
+    dim_ct=len(cosM)
+    if DEBUG:
+        tic = time.perf_counter()
+        i=0
 
-    #in molecular fram
     x = MFPAD.reshape(-1) * np.sin(theta_rad) * np.cos(phi_rad)
     y = MFPAD.reshape(-1) * np.sin(theta_rad) * np.sin(phi_rad)
     z = MFPAD.reshape(-1) * np.cos(theta_rad)
     xyzm = np.stack((x, y, z))
 
     for angle in cosphi_adj:
+        if DEBUG:
+            tic_1cycle = time.perf_counter()
         x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,angle[1]*np.pi/180.,angle[2]*np.pi/180.,convention=convention).T, xyzm)
+
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
+        # fix=np.flip(np.array(mag_LF).reshape(len(phiM),len(cosM)),axis=1) #this fix comes to accomodate the theta monotonic
 
-        #cos domain  0 < θ ≤ π
-        ctheta_rot=(z_LF/mag_LF)
-        #atan2 domain  −π < θ ≤ π
-        phi_rot=(np.arctan2(y_LF,x_LF)*180./np.pi)
+        if gaussian > 0:
+            ctheta_rot=gaussian_filter(z_LF/mag_LF, sigma=gaussian) #cos domain  0 < θ ≤ π
+            phi_rot=gaussian_filter(np.arctan2(y_LF,x_LF)*180./np.pi, sigma=gaussian) #atan2 domain  −π < θ ≤ π
+        else:
+            ctheta_rot=(z_LF/mag_LF) #cos domain  0 < θ ≤ π
+            phi_rot=(np.arctan2(y_LF,x_LF)*180./np.pi) #atan2 domain  −π < θ ≤ π
 
-        f = interpolate.SmoothSphereBivariateSpline(np.arccos(ctheta_rot), phi_rot*np.pi/180.+np.pi, mag_LF, s=s)
-        r_rot.append(f(theta,phi).T)
+        if upscale[0]:
+            cos_newfull, phi_newfull = np.mgrid[-1*upscale[1]:upscale[1]:upscale[3], -1*upscale[2]:upscale[2]:upscale[4]]
+            if s is None:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, w=mag_LF**-0.5, s=np.std(mag_LF))
+            else:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, s=s)
+            r_rot.append(interpolate.bisplev(cos_newfull[:,0], phi_newfull[0,:],f).T)
+        else:
+            if s is None:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, w=mag_LF**-0.5, s=np.std(mag_LF))
+            else:
+                f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, s=s)
+            r_rot.append(interpolate.bisplev(cosM,phiM,f).T)
 
-    return np.array(r_rot).reshape(nsize,36,18)
+        if DEBUG:
+            toc_1cycle = time.perf_counter()
+            print(f"{i:0d} cycles in {toc_1cycle - tic:0.4f} seconds, one cycle in {toc_1cycle - tic_1cycle:0.4f} seconds")
+            i+=1
+
+    if DEBUG:
+        toc = time.perf_counter()
+        print(f"All cycles in {toc - tic:0.4f} seconds")
+
+    if nsize>1:
+        return np.array(r_rot).reshape(nsize,dim_phi,dim_ct)
+    else:
+        return np.array(r_rot).reshape(dim_phi,dim_ct)
 
 def smoothgauss(MFPAD, sigmax, sigmay):
     """
