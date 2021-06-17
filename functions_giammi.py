@@ -3,6 +3,7 @@ from itertools import count
 
 import math
 import time
+import warnings
 
 import numpy as np
 from numpy.core.defchararray import array
@@ -611,7 +612,7 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
 
     return (newax)
 
-def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, kind="cubic", gaussian=0, n=15):
+def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, kind="cubic", gaussian=0, n=15, s_test=0):
     """
     Interpolates MFPAD and b1 with the unique x and y. Draws with pcolormesh with contour.
     FOR MFPADS(100,200) it is usually .T to match the dimension of phiM(100,) and cosM(200,)
@@ -628,6 +629,9 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
     # grid_x, grid_y = np.mgrid[-0.835:0.835:100j, -165:165:200j]
     # grid_z2 = griddata(cosphi_adj_cos, param_matrix_cos[:,0,0], (grid_x, grid_y), method='cubic')
 
+    #!NOTE because s or m in inter2d cannot be tuned and bisplrep doesn't fit well, warning are set off!
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+
     if limits == True:
         limits=[1]
     elif limits == False:
@@ -635,14 +639,23 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
 
     if len(z.shape)<2:
         z=z.reshape(len(y),-1)
-    f = interp2d(x,y,z, kind=kind)
+
     xnew = np.arange(x.min(), x.max(), xstep)
     ynew = np.arange(y.min(), y.max(), ystep)
-    Zn = f(xnew,ynew)
+    Xn, Yn = np.meshgrid(xnew, ynew)
+    if len(x.shape) == 1:
+        f = interp2d(x,y,z, kind=kind)
+        Zn = f(Xn[0,:],Yn[:,0])
+    elif s_test != 0:
+        f = interpolate.bisplrep(x.reshape(-1),y.reshape(-1),z.reshape(-1), s=s_test)
+        Zn = interpolate.bisplev(Xn[0,:],Yn[:,0],f).T
+    else:
+        f = interp2d(x.reshape(-1),y.reshape(-1),z.reshape(-1), kind=kind)
+        Zn = f(Xn[0,:],Yn[:,0])
+
     if gaussian>0:
         # print("Gaussian filter applied..")
         Zn=gaussian_filter(Zn,sigma=gaussian)
-    Xn, Yn = np.meshgrid(xnew, ynew)
 
     if len(limits)==1:
         cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud',cmap=cmap)
