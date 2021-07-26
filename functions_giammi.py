@@ -13,6 +13,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.colors
+import matplotlib.ticker as mticker
 from matplotlib import cm
 
 import triangulation as tr
@@ -273,13 +274,13 @@ def import_TH1Dgeneric(file, loc, centre_bins=True):
     Loads a generic TH1D graph from a .root file.
     """
     temp=np.array(file[loc].to_numpy(),dtype=object)
-    zvalues=temp[0]
+    yvalues=temp[0]
     if centre_bins: #! reduced of 1 dimension
         xvalues_red=(temp[1][1:] + temp[1][:-1])/2
-        return np.array(xvalues_red), np.array(zvalues)
+        return np.array(xvalues_red), np.array(yvalues)
     else:
         xvalues = temp[1]
-        return np.array(xvalues), np.array(zvalues)
+        return np.array(xvalues), np.array(yvalues)
 
 def import_TH2Dgeneric(file, loc, centre_bins=True):
     """
@@ -295,6 +296,23 @@ def import_TH2Dgeneric(file, loc, centre_bins=True):
         xvalues = temp[1]
         yvalues = temp[2]
         return np.array(xvalues), np.array(yvalues), np.array(zvalues)
+
+def import_TH3Dgeneric(file, loc, centre_bins=True):
+    """
+    Loads a generic TH3D graph from a .root file.
+    """
+    temp=np.array(file[loc].to_numpy(),dtype=object)
+    counts=temp[0]
+    if centre_bins: #! reduced of 1 dimension
+        xvalues_red=(temp[1][1:] + temp[1][:-1])/2
+        yvalues_red=(temp[2][1:] + temp[2][:-1])/2
+        zvalues_red=(temp[3][1:] + temp[3][:-1])/2
+        return np.array(xvalues_red), np.array(yvalues_red), np.array(zvalues_red), np.array(counts)
+    else:
+        xvalues = temp[1]
+        yvalues = temp[2]
+        zvalues = temp[3]
+        return np.array(xvalues), np.array(yvalues), np.array(zvalues), np.array(counts)
 
 def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
     """
@@ -598,7 +616,7 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
 
     newax.set_xticks(np.arange(-180,180.1,30, dtype=int))
     newax.set_xlim([-180,180])
-    newax.set_xlabel('\u03D5 photon')
+    newax.set_xlabel('\u03C6 photon')
 
     # newax.set_yticks(np.arange(0,180.1,20, dtype=int))
     # newax.set_ylim([-181,180])
@@ -608,11 +626,22 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
         newax.set_ylim([1,-1])
 
     # newax.set_ylabel('theta_photon')
-    newax.set_ylabel('cos(\u03D1) photon')
+    newax.set_ylabel('cos\u03D1 photon')
+    return(newax)
 
-    return (newax)
+def overlaycbar(fig,cs,axes,MFPAD=True):
+    """
+    Overlays the colorbar to the 72 plots
+    """
+    cbar = fig.colorbar(cs, ax=axes.ravel().tolist(), ticks=mticker.MultipleLocator(10), anchor=(1.5,1), pad=-2.5)
+    if MFPAD==True:
+        cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
+        cbar.set_ticklabels(["min","max"])
+        cbar.ax.set_ylabel('normalised counts')
 
-def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, kind="cubic", gaussian=0, n=15, s_test=0):
+    return(cbar)
+
+def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, nnorm=False, kind="cubic", gaussian=0, n=15, s_test=0):
     """
     Interpolates MFPAD and b1 with the unique x and y. Draws with pcolormesh with contour.
     FOR MFPADS(100,200) it is usually .T to match the dimension of phiM(100,) and cosM(200,)
@@ -643,6 +672,7 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
     xnew = np.arange(x.min(), x.max(), xstep)
     ynew = np.arange(y.min(), y.max(), ystep)
     Xn, Yn = np.meshgrid(xnew, ynew)
+
     if len(x.shape) == 1:
         f = interp2d(x,y,z, kind=kind)
         Zn = f(Xn[0,:],Yn[:,0])
@@ -657,20 +687,31 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
         # print("Gaussian filter applied..")
         Zn=gaussian_filter(Zn,sigma=gaussian)
 
-    if len(limits)==1:
-        cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud',cmap=cmap)
-        # print("test")
-    elif len(limits)==2:
-        cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud',cmap=cmap)
-        # print("test1")
+    if nnorm:
+        if len(limits)==1:
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud',cmap=cmap, norm=nnorm)
+            # print("test_norm")
+        elif len(limits)==2:
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud',cmap=cmap, norm=nnorm)
+            # print("test1_norm")
+        else:
+            cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap, norm=nnorm)
+            print("test2_norm")
     else:
-        cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap)
-        # print("test2")
+        if len(limits)==1:
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud',cmap=cmap)
+            # print("test")
+        elif len(limits)==2:
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud',cmap=cmap)
+            # print("test1")
+        else:
+            cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap)
+            # print("test2")
 
     if cont:
         ax.contour(Xn, Yn, gaussian_filter(Zn, sigma=4.), n, colors='k', alpha=0.15)
+
     return(cs,ax)
-    # return(Xn,Yn)
 
 def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
     """
