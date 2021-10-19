@@ -635,8 +635,9 @@ def overlaycbar(fig,cs,axes,MFPAD=True):
     """
     cbar = fig.colorbar(cs, ax=axes.ravel().tolist(), ticks=mticker.MultipleLocator(10), anchor=(1.5,1), pad=-2.5)
     if MFPAD==True:
+        contrast=cs.get_array().max()/cs.get_array().min()
         cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
-        cbar.set_ticklabels(["min","max"])
+        cbar.set_ticklabels([1,f"{contrast:.2f}"])
         cbar.ax.set_ylabel('normalised counts')
 
     return(cbar)
