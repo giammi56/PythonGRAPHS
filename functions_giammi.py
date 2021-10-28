@@ -891,11 +891,11 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None
     2. rotates them according to the realtive cosphi_adj which contains the photon coordiantes cos(θ)_photon φ_photon,
     3. converts them back into spherical coordinates (physics convention:  polar (i.e. around x-axis), phi azimuthal (i.e. around z axis)),
     4. makes an interpolation of the rotated MFPAD on the new cartesian axes.
-    INPUT:  72 **SORTED cos(theta)_el *and* photon** MFPAD, theta and phi with shape (20000,),
-            cosphi_adj_XXX **SORTED photon ACCORDINGLY TO INPUT** ELECTRON for rotations,
-            phiMM and cosMM linear meshgrid (100,200) **SORTED ACCORDING TO COS(THETA) ELECTORN**.
+    INPUT:  72 SORTED cos(theta)_el *and* photon MFPAD theta and phi with shape (n,),
+            cosphi_adj_XXX **SORTED photon ACCORDINGLY TO INPUT** ELECTRON angles of rotation in the form [(alpha,beta,gamma),n],
+            phiMM and cosMM linear meshgrid (phi,cos (usually 2*phi)) **SORTED ACCORDING TO COS(THETA) ELECTORN**.
     INPUT_optional: interpolation maethod. default = linear, rotation convention: 1=rotation yaw-pitch-roll, 2=y1x2z3. default convention=1.
-    OUTPUT: counts [72,100,200], ctheta [72,100,200], phi [72,100,200] force byte phiMM and cosMM
+    OUTPUT: counts [72,phi,cos], ctheta [72,phi,cos], phi [72,phi,cos] force byte phiMM and cosMM
     """
     r_rot=[];ctheta_temp=[];phi_temp=[];
 
@@ -923,7 +923,8 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None
             #4. α=φ, β=θ (convention 2 with Euler angles)
             # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,0.,np.arccos(angle[0]),convention=convention), xyzm)
         else:
-            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention).T, xyzm)
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention).T, xyzm)
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,np.arccos(angle[1]),angle[2]*np.pi/180.,convention=convention).T, xyzm) #from the correct Euler definiton
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
         # fix=np.flip(np.array(mag_LF).reshape(len(phiM),len(cosM)),axis=1) #this fix comes to accomodate the theta monotonic
@@ -947,6 +948,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None
             else:
                 f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, s=s)
             r_rot.append(interpolate.bisplev(cos_newfull[:,0], phi_newfull[0,:],f).T)
+            ydim=int(upscale[3].imag); xdim=int(upscale[4].imag);
         else:
             if DEBUG and i==0:
                 print("normal")
@@ -955,8 +957,11 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None
             else:
                 f = interpolate.bisplrep(ctheta_rot, phi_rot, mag_LF, s=s)
             r_rot.append(interpolate.bisplev(cosM,phiM,f).T)
+            ydim=len(cosM); xdim=len(phiM);
+
         # f = interpolate.SmoothSphereBivariateSpline(np.arccos(ctheta_rot), phi_rot*np.pi/180.+np.pi, fix.reshape(-1), s=s)
         # r_rot.append(f(theta,phi).T)
+
         if DEBUG:
             toc_1cycle = time.perf_counter()
             print(f"{i:0d} cycles in {toc_1cycle - tic:0.4f} seconds, one cycle in {toc_1cycle - tic_1cycle:0.4f} seconds")
@@ -966,7 +971,7 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None
         toc = time.perf_counter()
         print(f"All cycles in {toc - tic:0.4f} seconds")
 
-    return np.array(r_rot).reshape(len(cosphi_adj),200,100),np.array(ctheta_temp).reshape(len(cosphi_adj),200,100),np.array(phi_temp).reshape(len(cosphi_adj),200,100)
+    return np.array(r_rot).reshape(len(cosphi_adj),ydim,xdim),np.array(ctheta_temp).reshape(len(cosphi_adj),ydim,xdim),np.array(phi_temp).reshape(len(cosphi_adj),ydim,xdim)
 
 def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None,upscale=[False,1,180,100j,200j],gaussian=0, DEBUG=False):
     """
