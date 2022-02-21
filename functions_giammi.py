@@ -502,6 +502,7 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
     normtype 1 is a vector normalization along the rows.
     normtype 2 is a coefficient of variation, results proportional to the total counts (integral).
     normtype 3 is a min max feature scaling, results between 0 - 1.
+    err: if non integer, it introduce the calculation of errors
     nancorr: substitutes 0 with NaN.
 
     For errors: if I normalize using the integral sum, the standard error SE has to be divided by the same quantity.
@@ -616,7 +617,7 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
 
     newax.set_xticks(np.arange(-180,180.1,30, dtype=int))
     newax.set_xlim([-180,180])
-    newax.set_xlabel('\u03C6 photon')
+    newax.set_xlabel('\u03C6$_{ph}$ [DEG]')
 
     # newax.set_yticks(np.arange(0,180.1,20, dtype=int))
     # newax.set_ylim([-181,180])
@@ -624,20 +625,22 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
         newax.set_ylim([-1,1])
     else:
         newax.set_ylim([1,-1])
-
-    # newax.set_ylabel('theta_photon')
-    newax.set_ylabel('cos\u03D1 photon')
+    newax.set_ylabel('cos\u03D1$_{ph}$ [adm]')
     return(newax)
 
 def overlaycbar(fig,cs,axes,MFPAD=True):
     """
     Overlays the colorbar to the 72 plots
+    with MFPAD=True the lable is shown in contrast, otherwise in min max absolute counts
     """
     cbar = fig.colorbar(cs, ax=axes.ravel().tolist(), ticks=mticker.MultipleLocator(10), anchor=(1.5,1), pad=-2.5)
     if MFPAD==True:
         contrast=cs.get_array().max()/cs.get_array().min()
         cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
         cbar.set_ticklabels([1,f"{contrast:.2f}"])
+        cbar.ax.set_ylabel('contrast')
+    else:
+        cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
         cbar.ax.set_ylabel('normalised counts')
 
     return(cbar)
@@ -734,8 +737,8 @@ def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
     fig.update_layout(
     title={
         'text': "b1 map "+ch_en[-2],'y':0.98,'x':0.5,'xanchor': 'center','yanchor': 'top'},
-    xaxis_title='phi_photon [DEG]',
-    yaxis_title='cos(theta) [adm]',
+    xaxis_title='\u03C6$_{ph}$ [DEG]',
+    yaxis_title='cos\u03D1$_{ph}$ [adm]',
     # legend_title="Legend Title",
     showlegend=False,
     # autosize=False,
@@ -802,8 +805,8 @@ def plotgo_multiple(param_matrix, xgo, ygo, name, limits=[], tweak=False):
         height=1500,
         margin=dict(l=10,r=10,b=10,t=45)
         )
-    fig.update_xaxes(title_text="phi_photon [DEG]", row=6, col=1)
-    fig.update_yaxes(title_text='cos(theta) [adm]', row=3, col=1)
+    fig.update_xaxes(title_text='\u03C6$_{ph}$ [DEG]', row=6, col=1)
+    fig.update_yaxes(title_text='cos\u03D1$_{ph}$ [adm]', row=3, col=1)
 
     fig.write_image("../PYTHON_graphs/OUTPUTS/plotly/"+name+".png")
     fig.write_html("../PYTHON_graphs/OUTPUTS/plotly/"+name+".html")
@@ -923,8 +926,8 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None
             #4. α=φ, β=θ (convention 2 with Euler angles)
             # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,0.,np.arccos(angle[0]),convention=convention), xyzm)
         else:
-            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention).T, xyzm)
-            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,np.arccos(angle[1]),angle[2]*np.pi/180.,convention=convention).T, xyzm) #from the correct Euler definiton
+            x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[1]*np.pi/180.,np.arccos(angle[0]),angle[2]*np.pi/180.,convention=convention).T, xyzm) #default for opt theory
+            # x_LF, y_LF, z_LF = np.einsum('ik, kj -> ij', rot3d(angle[0]*np.pi/180.,np.arccos(angle[1]),angle[2]*np.pi/180.,convention=convention).T, xyzm) #from the correct Euler definiton
 
         mag_LF = np.sqrt(x_LF**2+y_LF**2+z_LF**2)
         # fix=np.flip(np.array(mag_LF).reshape(len(phiM),len(cosM)),axis=1) #this fix comes to accomodate the theta monotonic
@@ -970,8 +973,8 @@ def rot3d_MFPAD(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None
     if DEBUG:
         toc = time.perf_counter()
         print(f"All cycles in {toc - tic:0.4f} seconds")
-
-    return np.array(r_rot).reshape(len(cosphi_adj),ydim,xdim),np.array(ctheta_temp).reshape(len(cosphi_adj),ydim,xdim),np.array(phi_temp).reshape(len(cosphi_adj),ydim,xdim)
+    
+    return np.array(r_rot).reshape(len(cosphi_adj),xdim,ydim),np.array(ctheta_temp).reshape(len(cosphi_adj),xdim,ydim),np.array(phi_temp).reshape(len(cosphi_adj),xdim,ydim)
 
 def rot3d_MFPAD_dist(MFPAD,theta_rad,phi_rad,cosphi_adj,phiM,cosM,convention=1,s=None,upscale=[False,1,180,100j,200j],gaussian=0, DEBUG=False):
     """
