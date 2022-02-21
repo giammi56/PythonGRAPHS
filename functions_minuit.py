@@ -129,6 +129,7 @@ def plotminuit(x, y, err, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=300, k=5, size=
     #NOTE: x_data has to be monotonicalli INCREASING!
     bspl = make_interp_spline(x, PECD6(x, *m.values), k)
 
+    ax.axhline(0, color='black', alpha=0.2, lw=2)
     ax.plot(x_data_new, bspl(x_data_new))
     ax.errorbar(x,y, err, fmt="o")
     ax.set_xlim(xlim)
@@ -183,6 +184,7 @@ def plotminuit_noerr(x, y, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=300, k=5, size
     #NOTE: x_data has to be monotonicalli INCREASING!
     bspl = make_interp_spline(x, PECD6(x, *m.values), k)
 
+    ax.axhline(0, color='black', alpha=0.2, lw=2)
     ax.plot(x_data_new, bspl(x_data_new))
     ax.scatter(x,y,color='r')
     ax.set_xlim(xlim)
@@ -191,4 +193,3 @@ def plotminuit_noerr(x, y, m, ax, xlim=(-1,1), ylim=(-0.2,0.2), n=300, k=5, size
     # ax.axis('off')
 
     return(ax)
-
