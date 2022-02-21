@@ -24,15 +24,15 @@ from scipy.spatial import Delaunay
 from scipy import interpolate
 from scipy.interpolate import griddata
 from scipy.interpolate import interp2d
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage import gaussian_filter
 
 from pyntcloud import PyntCloud, structures
 import plotly
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-import uproot
-import uproot_methods
+# import uproot
+# import uproot_methods
 
 def avg_func(cosphi):
     """
