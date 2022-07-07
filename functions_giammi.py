@@ -319,7 +319,7 @@ def import_MFPAD(file, loc, full=False, run_MFPAD=0, run_cos=0):
     Loads the 72 MFPADs and the cos(theta) from the .root files.
     NOTE: MFPAD_xy and ctheta_c have originally +1 dimensions compare to the z values.
     For the sake of iminiut, cos(theta) is centered on the middle of the bins.
-    The deprecation has been implemented to avoid slicing, and doesn´t affect the outpu here.
+    The deprecation has been implemented to avoid slicing, and does not affect the output here.
     """
     valueMFPAD=[];valuectheta=[];valuectheta_err=[]; #fundamental
     cosphi_photon=[]; #important
@@ -362,7 +362,7 @@ def import_MFPAD3D(file, loc):
     Loads a single MFPAD and the cos(theta) from the 3D root file.
     It excrats cosphi photon as number of MFPAD, phi and cos electron axis
     NOTE: the final shape is (72,18,36), theroefore each of the 72 MPFAD is transposed comapre to the single inputs
-    The deprecation has been implemented to avoid slicing, and doesn´t affect the outpu here.
+    The deprecation has been implemented to avoid slicing, and does not affect the output here.
     """
     valueMFPAD=[]
     for key in file[loc].items():
@@ -373,12 +373,13 @@ def import_MFPAD3D(file, loc):
     #has to be transposed to match the sum
     return np.array(valueMFPAD.T,dtype=float)
 
+#TODO combine PECD3D with PECD3D_cos: the second should be just an option of selecting reduced and polarization planes.
+#TODO substitute the functions in diatomic_ALLCH
+#TODO a=a should be removed!
 def import_PECD3D(file, loc, a, full=False, run_MFPAD=0, run_cos=0):
     """
-    Loads a MFPAD and the cos(theta) from the .root files.
-    NOTE: MFPAD_xy and ctheta_c have originally +1 dimensions compare to the z values.
+    Loads 2DMFPADs (cos(theta) el. ejection vs. cos(beta) mol. orientation) and the cos(theta) from the diatomic .root files.
     For the sake of iminiut, cos(theta) is centered on the middle of the bins.
-    The deprecation has been implemented to avoid slicing, and doesn´t affect the outpu here.
     """
     valuePECD=[];valuePECD3D=[]; #fundamental
     valuectheta=[];valuectheta_err=[]; #fundamental
@@ -412,6 +413,8 @@ def import_PECD3D(file, loc, a, full=False, run_MFPAD=0, run_cos=0):
 
 def import_PECD3D_cos(file, loc, full=False, run_MFPAD=0, run_cos=0):
     """
+    Loads MFPAD and the cos(theta) from the diatomic .root files.
+    For the sake of iminiut, cos(theta) is centered on the middle of the bins.
     """
     valuePECD=[];valuePECD3D=[]; #fundamental
     valuectheta=[];valuectheta_err=[]; #fundamental
@@ -450,6 +453,133 @@ def import_PECD3D_cos(file, loc, full=False, run_MFPAD=0, run_cos=0):
         return np.array(valuePECD,dtype=float), np.array(valuePECD3D,dtype=float), np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float), \
             np.array(valuectheta_pol,dtype=float), np.array(valuectheta_pol_err,dtype=float)
 
+def import_2DPECD(file, loc, run_MFPAD=0, run_cos=0, full=False, redpol=False, en=False, cos=False, cdad=False, res_PECD=0):
+    """
+    Loads MFPAD and the cos(theta) from the diatomic .root files.
+    For the sake of iminiut, cos(theta) is centered on the middle of the bins.
+    run_MFPAD to load cos(thte) and phi coordiantes.
+    redpol is reduced polarization and identifies the the redPHI (NOTE: fore CDAD has to be be False)
+    res is present just in the diatomic files and outputs JUST 2DPECD_res.
+    en is True for PECD function of energy.
+    In general 2DPECD from diatomic and polyatomic should differ.
+    """
+    valuePECD=[];valuePECD3D=[]; #fundamental
+    valuectheta=[];valuectheta_err=[]; #fundamental
+    xy_phicos_axisMFPAD=[];xy_phicos_axisMFPAD_red=[];x_ctheta_axis=[];x_ctheta_axis_cred=[]; #just one
+    reslist = [0, 16, 36, 72]
+    if res_PECD not in reslist:
+        raise ValueError("Invalid resolution! Expected one of: %s" % res_PECD)
+    if res_PECD == 0:
+        for key in file[loc].items():
+            if redpol:
+                if ("PECD_LF_redPHI_en" in key[0]) and en:
+                    # print("PECD_redPHI")
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuePECD3D=(file[loc+key[0]].values()) # it is a list!
+                    if run_MFPAD == 0.:
+                        xy_phicos_axisMFPAD=(temp[1], temp[2], temp[3]) # cos(beta) cos(theta) energy from 2§
+                        run_MFPAD=1. #has to run just ones
+                    return np.array(valuePECD3D,dtype=float), np.array(xy_phicos_axisMFPAD,dtype=object)
+                elif ("PECD_LF_redPHI" in key[0]) and en==False:
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuePECD=file[loc+key[0]].values() # it is a list!
+                    if run_MFPAD == 0.:
+                        xy_phicos_axisMFPAD=(temp[1], temp[2]) # cos(beta) cos(theta) from 2D
+                        xy_phicos_axisMFPAD_red=(np.array((temp[1][1:] + temp[1][:-1])/2), np.array((temp[2][1:] + temp[2][:-1])/2)) # cos(beta) cos(theta) from 2D
+                        run_MFPAD=1. #has to run just ones
+                    if full:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD,dtype=float)
+                    else:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD_red,dtype=float)
+                elif "cos(theta)_e[0]_pol_red" in key[0] and cos:
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuectheta=file[loc+key[0]].values() # it is a list!
+                    valuectheta_err=file[loc+key[0]].errors() # it is a list!
+                    if run_cos == 0.:
+                        x_ctheta_axis=temp[1]
+                        x_ctheta_axis_cred=np.array((x_ctheta_axis[1:] + x_ctheta_axis[:-1])/2) #! reduced of 1 dimension
+                        run_cos=1.
+                    if full:
+                        return np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float), np.array(x_ctheta_axis,dtype=float), np.array(x_ctheta_axis_cred,dtype=float)
+                    else:
+                        return np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float)
+            else:
+                if ("PECD_LF_en" in key[0]) and en:
+                    # print("PECD")
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuePECD3D=(file[loc+key[0]].values()) # it is a list!
+                    if run_MFPAD == 0.:
+                        xy_phicos_axisMFPAD=(temp[1], temp[2], temp[3]) # cos(beta) cos(theta) energy from 2§
+                        run_MFPAD=1. #has to run just ones
+                    return np.array(valuePECD3D,dtype=float), np.array(xy_phicos_axisMFPADdtype=object)
+                elif ("PECD_LF" in key[0]) and en==False:
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuePECD=file[loc+key[0]].values() # it is a list!
+                    if run_MFPAD == 0.:
+                        xy_phicos_axisMFPAD=(temp[1], temp[2]) # cos(beta) cos(theta) from 2D
+                        xy_phicos_axisMFPAD_red=(np.array((temp[1][1:] + temp[1][:-1])/2), np.array((temp[2][1:] + temp[2][:-1])/2)) # cos(beta) cos(theta) from 2D
+                        run_MFPAD=1. #has to run just ones
+                    if full:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD,dtype=float)
+                    else:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD_red,dtype=float)
+                elif ("CDAD_LF" in key[0]) and en==False and cdad:
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valueCDAD=file[loc+key[0]].values() # it is a list!
+                    if run_MFPAD == 0.:
+                        xy_phicos_axisMFPAD=(temp[1], temp[2]) # cos(beta) cos(theta) from 2D
+                        xy_phicos_axisMFPAD_red=(np.array((temp[1][1:] + temp[1][:-1])/2), np.array((temp[2][1:] + temp[2][:-1])/2)) # cos(beta) cos(theta) from 2D
+                        run_MFPAD=1. #has to run just ones
+                    if full:
+                        return np.array(valueCDAD,dtype=float), np.array(xy_phicos_axisMFPAD,dtype=float)
+                    else:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD_red,dtype=float)
+                elif ("cos(theta)_e[0];" in key[0]) and cos:
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuectheta=file[loc+key[0]].values() # it is a list!
+                    valuectheta_err=file[loc+key[0]].errors() # it is a list!
+                    if run_cos == 0.:
+                        x_ctheta_axis=temp[1]
+                        x_ctheta_axis_cred=np.array((x_ctheta_axis[1:] + x_ctheta_axis[:-1])/2) #! reduced of 1 dimension
+                        run_cos=1.
+                    if full:
+                        return np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float), np.array(x_ctheta_axis,dtype=float), np.array(x_ctheta_axis_cred,dtype=float)
+                    else:
+                        return np.array(valuectheta,dtype=float), np.array(valuectheta_err,dtype=float)
+                else:
+                    continue
+    else:
+        for key in file[loc].items():
+            if redpol:
+                if "PECD_LF_redPHI_"+str(res_PECD) in key[0]:
+                    # print("PECD_LF_redPHI_"+str(res_PECD))
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuePECD=file[loc+key[0]].values() # it is a list!
+                    if run_MFPAD == 0.:
+                        xy_phicos_axisMFPAD=(temp[1], temp[2]) # cos(beta) cos(theta) from 2D
+                        xy_phicos_axisMFPAD_red=(np.array((temp[1][1:] + temp[1][:-1])/2), np.array((temp[2][1:] + temp[2][:-1])/2)) # cos(beta) cos(theta) from 2D
+                        run_MFPAD=1. #has to run just ones
+                    if full:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD,dtype=float)
+                    else:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD_red,dtype=float)
+                else:
+                    continue
+            else:
+                if "PECD_LF_"+str(res_PECD) in key[0]:
+                    temp=np.array(file[loc+key[0]].to_numpy(),dtype=object)
+                    valuePECD=file[loc+key[0]].values() # it is a list!
+                    if run_MFPAD == 0.:
+                        xy_phicos_axisMFPAD=(temp[1], temp[2]) # cos(beta) cos(theta) from 2D
+                        xy_phicos_axisMFPAD_red=(np.array((temp[1][1:] + temp[1][:-1])/2), np.array((temp[2][1:] + temp[2][:-1])/2)) # cos(beta) cos(theta) from 2D
+                        run_MFPAD=1. #has to run just ones
+                    if full:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD,dtype=float)
+                    else:
+                        return np.array(valuePECD,dtype=float), np.array(xy_phicos_axisMFPAD_red,dtype=float)
+                else:
+                    continue
+            
 def mag(vector):
     """
     Return the magnitude of a vector (array) as the square root of the sum of the squares of its components.
@@ -645,7 +775,7 @@ def overlaycbar(fig,cs,axes,MFPAD=True):
 
     return(cbar)
 
-def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, nnorm=False, kind="cubic", gaussian=0, n=15, s_test=0):
+def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, ystep=.001, cont=True, nnorm=False, kind="cubic", gaussian=0, after=True, n=15, s_test=0, upscale=False):
     """
     Interpolates MFPAD and b1 with the unique x and y. Draws with pcolormesh with contour.
     FOR MFPADS(100,200) it is usually .T to match the dimension of phiM(100,) and cosM(200,)
@@ -662,7 +792,7 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
     # grid_x, grid_y = np.mgrid[-0.835:0.835:100j, -165:165:200j]
     # grid_z2 = griddata(cosphi_adj_cos, param_matrix_cos[:,0,0], (grid_x, grid_y), method='cubic')
 
-    #!NOTE because s or m in inter2d cannot be tuned and bisplrep doesn't fit well, warning are set off!
+    #!NOTE warning are set off because s or m in inter2d cannot be tuned and bisplrep doesn't fit well!
     warnings.filterwarnings("ignore", category=RuntimeWarning)
 
     if limits == True:
@@ -677,44 +807,53 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
     ynew = np.arange(y.min(), y.max(), ystep)
     Xn, Yn = np.meshgrid(xnew, ynew)
 
+    #Smoothing before the interpolation
+    if gaussian>0 and after==True:
+        # print("Gaussian filter applied before interpolation..")
+        z=gaussian_filter(z, sigma=gaussian)
+
     if len(x.shape) == 1:
-        f = interp2d(x,y,z, kind=kind)
-        Zn = f(Xn[0,:],Yn[:,0])
+        f = interp2d(x, y, z, kind=kind)
+        Zn = f(Xn[0,:], Yn[:,0])
     elif s_test != 0:
-        f = interpolate.bisplrep(x.reshape(-1),y.reshape(-1),z.reshape(-1), s=s_test)
-        Zn = interpolate.bisplev(Xn[0,:],Yn[:,0],f).T
+        f = interpolate.bisplrep(x.reshape(-1), y.reshape(-1), z.reshape(-1), s=s_test)
+        Zn = interpolate.bisplev(Xn[0,:], Yn[:,0],f).T
     else:
-        f = interp2d(x.reshape(-1),y.reshape(-1),z.reshape(-1), kind=kind)
-        Zn = f(Xn[0,:],Yn[:,0])
+        f = interp2d(x.reshape(-1), y.reshape(-1), z.reshape(-1), kind=kind)
+        Zn = f(Xn[0,:], Yn[:,0])
 
-    if gaussian>0:
-        # print("Gaussian filter applied..")
-        Zn=gaussian_filter(Zn,sigma=gaussian)
-
+    #Smoothing after the interpolation
+    if gaussian>0 and after==False:
+        # print("Gaussian filter applied after interpolation..")
+        Zn=gaussian_filter(Zn, sigma=gaussian)
+    
+    if upscale:
+        return (Xn[0,:], Yn[:,0], Zn)
+    
     if nnorm:
         if len(limits)==1:
-            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud',cmap=cmap, norm=nnorm)
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud', cmap=cmap, norm=nnorm)
             # print("test_norm")
         elif len(limits)==2:
-            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud',cmap=cmap, norm=nnorm)
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud', cmap=cmap, norm=nnorm)
             # print("test1_norm")
         else:
-            cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap, norm=nnorm)
+            cs=ax.pcolormesh(Xn, Yn, Zn, shading='gouraud', cmap=cmap, norm=nnorm)
             print("test2_norm")
     else:
         if len(limits)==1:
-            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud',cmap=cmap)
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud', cmap=cmap)
             # print("test")
         elif len(limits)==2:
-            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud',cmap=cmap)
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud', cmap=cmap)
             # print("test1")
         else:
-            cs=ax.pcolormesh(Xn, Yn, Zn,shading='gouraud',cmap=cmap)
+            cs=ax.pcolormesh(Xn, Yn, Zn, shading='gouraud', cmap=cmap)
             # print("test2")
 
     if cont:
         ax.contour(Xn, Yn, gaussian_filter(Zn, sigma=4.), n, colors='k', alpha=0.15)
-
+    
     return(cs,ax)
 
 def plotgo_single(param_matrix, xgo, ygo, name, limits=[]):
