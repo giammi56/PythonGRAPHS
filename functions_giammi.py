@@ -832,7 +832,7 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
     
     if nnorm:
         if len(limits)==1:
-            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud', cmap=cmap, norm=nnorm)
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=Zn.min(), vmax=Zn.max(), shading='gouraud', cmap=cmap, norm=nnorm)
             # print("test_norm")
         elif len(limits)==2:
             cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud', cmap=cmap, norm=nnorm)
@@ -842,7 +842,7 @@ def plot_interpolation (x, y, z, ax, cmap="viridis", limits=False, xstep=1, yste
             print("test2_norm")
     else:
         if len(limits)==1:
-            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=z.min(), vmax=z.max(), shading='gouraud', cmap=cmap)
+            cs=ax.pcolormesh(Xn, Yn, Zn, vmin=Zn.min(), vmax=Zn.max(), shading='gouraud', cmap=cmap)
             # print("test")
         elif len(limits)==2:
             cs=ax.pcolormesh(Xn, Yn, Zn, vmin=limits[0], vmax=limits[1], shading='gouraud', cmap=cmap)
