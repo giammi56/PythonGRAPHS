@@ -721,7 +721,7 @@ def normalise_with_err(a,err=0,normtype=2,nancorr=False):
         else:
             return np.array(new_matrix), np.array(new_err)
 
-def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
+def overlaygraph(fig, title="",original=True, paper=False, wspace=0.08, hspace=0.08):
     """
     Overlays the typical graphs with photon coordiantes x=phi, y=cos(theta).
     Set the space in between the subplots via fig.
@@ -747,7 +747,12 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
 
     newax.set_xticks(np.arange(-180,180.1,30, dtype=int))
     newax.set_xlim([-180,180])
-    newax.set_xlabel('\u03C6$_{ph}$ [DEG]')
+    if paper:
+        newax.set_xlabel('\u03C6°$_{ph}$',loc='center',fontsize=26)
+        newax.set_ylabel('cos\u03D1$_{ph}$',loc='center',fontsize=26)
+    else:
+        newax.set_xlabel('\u03C6$_{ph}$ [DEG]')
+        newax.set_ylabel('cos\u03D1$_{ph}$ [adm]')
 
     # newax.set_yticks(np.arange(0,180.1,20, dtype=int))
     # newax.set_ylim([-181,180])
@@ -755,20 +760,27 @@ def overlaygraph(fig, title="",original=True, wspace=0.08, hspace=0.08):
         newax.set_ylim([-1,1])
     else:
         newax.set_ylim([1,-1])
-    newax.set_ylabel('cos\u03D1$_{ph}$ [adm]')
     return(newax)
 
-def overlaycbar(fig,cs,axes,MFPAD=True):
+def overlaycbar(fig,cs,axes,MFPAD=True, minmaxth=False, minmaxexp=False):
     """
     Overlays the colorbar to the 72 plots
     with MFPAD=True the lable is shown in contrast, otherwise in min max absolute counts
     """
     cbar = fig.colorbar(cs, ax=axes.ravel().tolist(), ticks=mticker.MultipleLocator(10), anchor=(1.5,1), pad=-2.5)
-    if MFPAD==True:
+    if MFPAD and minmaxth==False and minmaxexp==False:
         contrast=cs.get_array().max()/cs.get_array().min()
         cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
         cbar.set_ticklabels([1,f"{contrast:.2f}"])
         cbar.ax.set_ylabel('contrast')
+    elif minmaxth:
+        cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
+        cbar.set_ticklabels(['min', 'max'])
+        cbar.ax.set_ylabel('normalised intesity',loc='center')
+    elif minmaxexp:
+        cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
+        cbar.set_ticklabels(['min', 'max'])
+        cbar.ax.set_ylabel('normalised counts',loc='center')
     else:
         cbar.set_ticks([cs.get_array().min(),cs.get_array().max()])
         cbar.ax.set_ylabel('normalised counts')
